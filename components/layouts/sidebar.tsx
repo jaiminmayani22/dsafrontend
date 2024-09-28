@@ -33,6 +33,12 @@ import IconMenuAuthentication from '@/components/icon/menu/icon-menu-authenticat
 import IconMenuDocumentation from '@/components/icon/menu/icon-menu-documentation';
 import { usePathname } from 'next/navigation';
 import { getTranslation } from '@/i18n';
+import IconTrash from '../icon/icon-trash';
+import IconPlus from '../icon/icon-plus';
+import IconListCheck from '../icon/icon-list-check';
+import IconUser from '../icon/icon-user';
+import IconUsersGroup from '../icon/icon-users-group';
+import IconMenu from '../icon/icon-menu';
 
 const Sidebar = () => {
     const dispatch = useDispatch();
@@ -135,11 +141,6 @@ const Sidebar = () => {
                             </li>
 
                             {/* PANEL PART */}
-                            <h2 className="-mx-4 mb-1 flex items-center bg-white-light/30 px-7 py-3 font-extrabold uppercase dark:bg-dark dark:bg-opacity-[0.08]">
-                                <IconMinus className="hidden h-5 w-4 flex-none" />
-                                <span>{t('contacts info')}</span>
-                            </h2>
-
                             <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
@@ -152,89 +153,133 @@ const Sidebar = () => {
                                     </li>
                                 </ul>
                             </li>
-
-                            <h2 className="-mx-4 mb-1 flex items-center bg-white-light/30 px-7 py-3 font-extrabold uppercase dark:bg-dark dark:bg-opacity-[0.08]">
-                                <IconMinus className="hidden h-5 w-4 flex-none" />
-                                <span>{t('group info')}</span>
-                            </h2>
-
                             <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
                                         <Link href="/apps/groups" className="group">
                                             <div className="flex items-center">
-                                                <IconMenuContacts className="shrink-0 group-hover:!text-primary" />
+                                                <IconMenuTodo className="shrink-0 group-hover:!text-primary" />
                                                 <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Group List')}</span>
                                             </div>
                                         </Link>
                                     </li>
                                 </ul>
                             </li>
-
-                            <h2 className="-mx-4 mb-1 flex items-center bg-white-light/30 px-7 py-3 font-extrabold uppercase dark:bg-dark dark:bg-opacity-[0.08]">
-                                <IconMinus className="hidden h-5 w-4 flex-none" />
-                                <span>{t('message scheduling')}</span>
-                            </h2>
-
+                            <li className="nav-item">
+                                <ul>
+                                    <li className="nav-item">
+                                        <Link href="/apps/create-template" className="group">
+                                            <div className="flex items-center">
+                                                <IconPlus className="shrink-0 group-hover:!text-primary" />
+                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Create Template')}</span>
+                                            </div>
+                                        </Link>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li className="nav-item">
+                                <ul>
+                                    <li className="nav-item">
+                                        <Link href="/apps/send-message" className="group">
+                                            <div className="flex items-center">
+                                                <IconMenuFontIcons className="shrink-0 group-hover:!text-primary" />
+                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Create Campaign')}</span>
+                                            </div>
+                                        </Link>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li className="nav-item">
+                                <ul>
+                                    <li className="nav-item">
+                                        <Link href="/apps/send-message" className="group">
+                                            <div className="flex items-center">
+                                                <IconListCheck className="shrink-0 group-hover:!text-primary" />
+                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Campaign Reports')}</span>
+                                            </div>
+                                        </Link>
+                                    </li>
+                                </ul>
+                            </li>
                             <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
                                         <Link href="/apps/send-message" className="group">
                                             <div className="flex items-center">
                                                 <IconMenuChat className="shrink-0 group-hover:!text-primary" />
-                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Send Message')}</span>
+                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Chats')}</span>
                                             </div>
                                         </Link>
                                     </li>
                                 </ul>
                             </li>
-
-                            <h2 className="-mx-4 mb-1 flex items-center bg-white-light/30 px-7 py-3 font-extrabold uppercase dark:bg-dark dark:bg-opacity-[0.08]">
-                                <IconMinus className="hidden h-5 w-4 flex-none" />
-                                <span>{t('message log report')}</span>
-                            </h2>
-
                             <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
-                                        <Link href="/message-log-report/log-data" className="group">
+                                        <Link href="/apps/send-message" className="group">
                                             <div className="flex items-center">
-                                                <IconMenuChat className="shrink-0 group-hover:!text-primary" />
-                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Log Data')}</span>
-                                            </div>
-                                        </Link>
-                                    </li>
-                                    <li className="nav-item">
-                                        <Link href="/message-log-report/schedule-data" className="group">
-                                            <div className="flex items-center">
-                                                <IconMenuTodo className="shrink-0 group-hover:!text-primary" />
-                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Schedule Data')}</span>
-                                            </div>
-                                        </Link>
-                                    </li>
-                                    <li className="nav-item">
-                                        <Link href="/message-log-report/received-messages" className="group">
-                                            <div className="flex items-center">
-                                                <IconMenuMailbox className="shrink-0 group-hover:!text-primary" />
-                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Received Messages')}</span>
+                                                <IconUser className="shrink-0 group-hover:!text-primary" />
+                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Accounts')}</span>
                                             </div>
                                         </Link>
                                     </li>
                                 </ul>
                             </li>
-
-                            <h2 className="-mx-4 mb-1 flex items-center bg-white-light/30 px-7 py-3 font-extrabold uppercase dark:bg-dark dark:bg-opacity-[0.08]">
-                                <IconMinus className="hidden h-5 w-4 flex-none" />
-                                <span>{t('credential')}</span>
-                            </h2>
-
+                            <li className="nav-item">
+                                <ul>
+                                    <li className="nav-item">
+                                        <Link href="/apps/send-message" className="group">
+                                            <div className="flex items-center">
+                                                <IconMenuAuthentication className="shrink-0 group-hover:!text-primary" />
+                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Authentications')}</span>
+                                            </div>
+                                        </Link>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li className="nav-item">
+                                <ul>
+                                    <li className="nav-item">
+                                        <Link href="/apps/send-message" className="group">
+                                            <div className="flex items-center">
+                                                <IconUsersGroup className="shrink-0 group-hover:!text-primary" />
+                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Meta Profile')}</span>
+                                            </div>
+                                        </Link>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li className="nav-item">
+                                <ul>
+                                    <li className="nav-item">
+                                        <Link href="/apps/send-message" className="group">
+                                            <div className="flex items-center">
+                                                <IconMenuInvoice className="shrink-0 group-hover:!text-primary" />
+                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Billing Details')}</span>
+                                            </div>
+                                        </Link>
+                                    </li>
+                                </ul>
+                            </li>
                             <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
                                         <Link href="/credential/change-password" className="group">
                                             <div className="flex items-center">
-                                                <IconMenuAuthentication className="shrink-0 group-hover:!text-primary" />
-                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Change Password')}</span>
+                                                <IconMenu className="shrink-0 group-hover:!text-primary" />
+                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Variable Master')}</span>
+                                            </div>
+                                        </Link>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li className="nav-item">
+                                <ul>
+                                    <li className="nav-item">
+                                        <Link href="/apps/trash" className="group">
+                                            <div className="flex items-center">
+                                                <IconTrash className="shrink-0 group-hover:!text-primary" />
+                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Trash')}</span>
                                             </div>
                                         </Link>
                                     </li>

@@ -1,6 +1,8 @@
 'use client';
 import IconLockDots from '@/components/icon/icon-lock-dots';
 import IconMail from '@/components/icon/icon-mail';
+import IconEyeOff from '@/components/icon/icon-eye-off';
+import IconEye from '@/components/icon/icon-eye';
 import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
 import apis from '../../public/apis';
@@ -11,6 +13,7 @@ const ComponentsAuthLoginForm = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     const submitForm = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -22,7 +25,7 @@ const ComponentsAuthLoginForm = () => {
 
         try {
             const API = apis.userLogin;
-            const response = await fetch( API, {
+            const response = await fetch(API, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -50,7 +53,7 @@ const ComponentsAuthLoginForm = () => {
             <div>
                 <label htmlFor="Email">Email</label>
                 <div className="relative text-white-dark">
-                    <input id="Email" type="email" placeholder="Enter Email" className="form-input ps-10 placeholder:text-white-dark" value={email} onChange={(e) => setEmail(e.target.value)}/>
+                    <input id="Email" type="email" placeholder="Enter Email" className="form-input ps-10 placeholder:text-white-dark" value={email} onChange={(e) => setEmail(e.target.value)} />
                     <span className="absolute start-4 top-1/2 -translate-y-1/2">
                         <IconMail fill={true} />
                     </span>
@@ -59,12 +62,26 @@ const ComponentsAuthLoginForm = () => {
             <div>
                 <label htmlFor="Password">Password</label>
                 <div className="relative text-white-dark">
-                    <input id="Password" type="password" placeholder="Enter Password" className="form-input ps-10 placeholder:text-white-dark" value={password} onChange={(e) => setPassword(e.target.value)}/>
+                    <input
+                        id="Password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Enter Password"
+                        className="form-input ps-10 placeholder:text-white-dark"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                    />
                     <span className="absolute start-4 top-1/2 -translate-y-1/2">
                         <IconLockDots fill={true} />
                     </span>
+                    <span
+                        className="absolute end-4 top-1/2 -translate-y-1/2 cursor-pointer"
+                        onClick={() => setShowPassword(!showPassword)}
+                    >
+                        {showPassword ? <IconEyeOff /> : <IconEye />}
+                    </span>
                 </div>
             </div>
+
             <button type="submit" className="btn btn-gradient !mt-6 w-full border-0 uppercase shadow-[0_10px_20px_-10px_rgba(67,97,238,0.44)]">
                 Sign in
             </button>
