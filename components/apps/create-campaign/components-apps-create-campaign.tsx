@@ -11,7 +11,7 @@ import Swal from 'sweetalert2';
 import apis from '../../../public/apis';
 import IconCopy from '@/components/icon/icon-copy';
 
-const ComponentsAppsCreateTemplate = () => {
+const ComponentsAppsCreateCampaign = () => {
     const token = localStorage.getItem('authToken');
     const [items, setItems] = useState([]);
 
@@ -30,57 +30,6 @@ const ComponentsAppsCreateTemplate = () => {
         columnAccessor: 'firstName',
         direction: 'asc',
     });
-
-    //DUMMY SET
-
-    // const [image, setImage] = useState(null);
-    // const [username, setUsername] = useState('');
-    // const [profilePicUrl, setProfilePicUrl] = useState('');
-    // const [preview, setPreview] = useState(null);
-
-    // const handleSubmit = async (e) => {
-    //     e.preventDefault();
-
-    //     // // Prepare FormData
-    //     // const formData = new FormData();
-    //     // // formData.append('template', image); // Use 'template' field for the image file
-    //     // formData.append('videoPath', "http://localhost:8080/./public/videoplayback.mp4"); // Use 'template' field for the image file
-    //     // formData.append('username', "Jaimin");
-    //     // formData.append('logoPath', "http://localhost:8080/./public/profile_picture/6666666666.jpg");
-
-    //     let formData = {
-    //         videoPath: "http://localhost:8080/./public/videoplayback.mp4", // Use 'template' field for the image file
-    //         username: "Jaimin",
-    //         logoPath: "http://localhost:8080/./public/profile_picture/testImage.png",
-    //     };
-
-    //     try {
-    //         const res = await fetch('http://localhost:8080/template/processVideo', {  //FOR VIDEO
-    //         // const res = await fetch('http://localhost:8080/template/testAPI', {  //FOR IMAGE
-    //             method: 'POST',
-    //             headers: {
-    //                 'Content-Type': 'application/json',  // Set content-type to application/json
-    //             },
-    //             body: JSON.stringify(formData),
-    //         });
-
-    //         if (res.ok) {
-    //             //FOR IMAGE
-    //             const blob = await res.blob();
-    //             // setPreview(URL.createObjectURL(blob));
-
-    //             //FOR VIDEO
-    //             const videoURL = URL.createObjectURL(blob);
-    //             setPreview(videoURL);
-    //         } else {
-    //             console.error('Error processing image');
-    //         }
-    //     } catch (error) {
-    //         console.error('Error submitting form:', error);
-    //     }
-    // };
-
-    //DUMMY SET OVER
 
     useEffect(() => {
         const fetchAllTemplates = async () => {
@@ -359,52 +308,7 @@ const ComponentsAppsCreateTemplate = () => {
                 </div>
             )}
         </div>
-
-        // TEST PART
-        // <div>
-        //     <h1>Send Personalized Image</h1>
-        //     <form onSubmit={handleSubmit}>
-        //         <div>
-        //             <label>Upload Image:</label>
-        //             <input
-        //                 type="file"
-        //                 accept="image/*"
-        //                 onChange={(e) => setImage(e.target.files ? e.target.files[0] : null)}
-        //             />
-        //         </div>
-        //         <div>
-        //             <label>Username:</label>
-        //             <input
-        //                 type="text"
-        //                 value={username}
-        //                 onChange={(e) => setUsername(e.target.value)}
-        //             />
-        //         </div>
-        //         <div>
-        //             <label>Profile Picture URL:</label>
-        //             <input
-        //                 type="text"
-        //                 value={profilePicUrl}
-        //                 onChange={(e) => setProfilePicUrl(e.target.value)}
-        //             />
-        //         </div>
-        //         <button type="submit">Generate Image</button>
-        //     </form>
-
-        //     {/* {preview && (
-        //         <div>
-        //             <h2>Preview:</h2>
-        //             <img src={preview} alt="Generated" />
-        //         </div>
-        //     )} */}
-        //     {preview && (
-        //         <video controls width="600" src={preview}>
-        //             Your browser does not support the video tag.
-        //         </video>
-        //     )}
-        // </div>
-        //TEST PART OVER
     );
 };
 
-export default ComponentsAppsCreateTemplate;
+export default ComponentsAppsCreateCampaign;

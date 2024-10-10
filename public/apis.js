@@ -40,6 +40,15 @@ const apis = {
     hardDeleteClients: `${SERVER}user/hardDeleteClients`,
     restoreClients: `${SERVER}user/restoreClients`,
 
+    //TEMPLATE
+    templateImageUpload: `${SERVER}template/templateImageUpload`,
+    templateFormatUpload: `${SERVER}template/templateFormatUpload`,
+    getAllTemplateImages: `${SERVER}template/getAllTemplateImages`,
+    getAllTemplateFormat: `${SERVER}template/getAllTemplateFormat`,
+    getAllTemplates: `${SERVER}template/getAllTemplates`,
+    createTemplate: `${SERVER}template/createTemplate`,
+    deleteTemplate: `${SERVER}template/deleteTemplate`,
+    testAPI: `${SERVER}template/testAPI`,
 };
 
 module.exports = apis;

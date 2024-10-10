@@ -96,10 +96,11 @@ const ComponentsAppsContacts = () => {
                     },
                     body: JSON.stringify(params),
                 });
+                const data = await response.json();
                 if (!response.ok) {
+                    showMessage(data.message,'error');
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                const data = await response.json();
                 setContacts(data.data);
                 setFilteredItems(data.data);
             } catch (error) {
@@ -136,6 +137,10 @@ const ComponentsAppsContacts = () => {
                     },
                 });
                 const data = await response.json();
+                if (!response.ok) {
+                    showMessage(data.message, 'error');
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
                 setGroupNames(data);
             } catch (error) {
                 console.error('Error fetching group names:', error);

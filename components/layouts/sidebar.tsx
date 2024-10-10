@@ -180,7 +180,7 @@ const Sidebar = () => {
                             <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
-                                        <Link href="/apps/send-message" className="group">
+                                        <Link href="/apps/create-campaign" className="group">
                                             <div className="flex items-center">
                                                 <IconMenuFontIcons className="shrink-0 group-hover:!text-primary" />
                                                 <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Create Campaign')}</span>
