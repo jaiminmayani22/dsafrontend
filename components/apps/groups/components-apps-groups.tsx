@@ -1,4 +1,15 @@
 'use client';
+
+//LIBRARIES
+import { DataTableSortStatus, DataTable } from 'mantine-datatable';
+import { FaStar, FaRegStar } from 'react-icons/fa';
+import { sortBy } from 'lodash';
+import Link from 'next/link';
+import { useSelector } from 'react-redux';
+import React, { Fragment, useEffect, useState } from 'react';
+import Swal from 'sweetalert2';
+
+//COMPONENETS
 import IconSearch from '@/components/icon/icon-search';
 import IconUser from '@/components/icon/icon-user';
 import IconUserPlus from '@/components/icon/icon-user-plus';
@@ -11,52 +22,46 @@ import IconEye from '@/components/icon/icon-eye';
 import IconPlus from '@/components/icon/icon-plus';
 import IconTrashLines from '@/components/icon/icon-trash-lines';
 import IconRefresh from '@/components/icon/icon-refresh';
-import { DataTableSortStatus, DataTable } from 'mantine-datatable';
-import { FaStar, FaRegStar } from 'react-icons/fa';
-import { sortBy } from 'lodash';
-
 import IconHorizontalDots from '@/components/icon/icon-horizontal-dots';
-import Link from 'next/link';
 import { IRootState } from '@/store';
 import IconCaretDown from '@/components/icon/icon-caret-down';
 import { Transition, Dialog } from '@headlessui/react';
-import { useSelector } from 'react-redux';
-import React, { Fragment, useEffect, useState } from 'react';
-import Swal from 'sweetalert2';
-import apis from '../../../public/apis';
 import { Button } from '@mantine/core';
 import IconArrowBackward from '@/components/icon/icon-arrow-backward';
+
+//FILES
+import apis from '../../../public/apis';
 
 const PAGE_SIZES = [10, 20, 50];
 const token = localStorage.getItem('authToken');
 
 const ComponentsAppsGroups = () => {
     const isRtl = useSelector((state: IRootState) => state.themeConfig.rtlClass) === 'rtl';
-    const [selectedGroup, setSelectedGroup] = useState(null);
-    const [selectedGroups, setSelectedGroups] = useState(null);
+    const [selectedGroup, setSelectedGroup] = useState<any>(null);
+    const [selectedGroups, setSelectedGroups] = useState<any>(null);
 
-    const [groupList, setGroups] = useState([]);
+    const [groupList, setGroups] = useState<any>([]);
     const [addGroupModal, setAddGroupModal] = useState<any>(false);
     const [addContactModal, setAddContactModal] = useState<any>(false);
-    const [viewUserModal, setViewUserModal] = useState(false);
-    const [inputValue, setInputValue] = useState('');
-    const [selectedMembers, setSelectedMembers] = useState('');
-    const [viewGroupModal, setViewGroupModal] = useState(false);
-    const [page, setPage] = useState(1); // Current page
-    const [pageSize, setPageSize] = useState(PAGE_SIZES[0]); // Records per page
+    const [viewUserModal, setViewUserModal] = useState<any>(false);
+    const [inputValue, setInputValue] = useState<any>('');
+    const [selectedMembers, setSelectedMembers] = useState<any>('');
+    const [viewGroupModal, setViewGroupModal] = useState<any>(false);
+    const [page, setPage] = useState<any>(1); // Current page
+    const [pageSize, setPageSize] = useState<any>(PAGE_SIZES[0]); // Records per page
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus>({
         columnAccessor: 'name',
         direction: 'asc',
     });
-    const [selectedOptions, setSelectedOptions] = useState([]);
-    const [errors, setErrors] = useState({});
-    const [groupNames, setGroupNames] = useState([]);
-    const [currentUser, setCurrentUser] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedImage, setSelectedImage] = useState(null);
+    const [selectedOptions, setSelectedOptions] = useState<any>([]);
+    const [errors, setErrors] = useState<any>({});
+    const [groupNames, setGroupNames] = useState<any>([]);
+    const [currentUser, setCurrentUser] = useState<any>(null);
+    const [isModalOpen, setIsModalOpen] = useState<any>(false);
+    const [selectedImage, setSelectedImage] = useState<any>(null);
     const [selectedRecords, setSelectedRecords] = useState<any[]>([]);
 
-    const [defaultParams] = useState({
+    const [defaultParams] = useState<any>({
         _id: null,
         name: '',
         groupId: '',
@@ -66,7 +71,7 @@ const ComponentsAppsGroups = () => {
         updatedAt: '',
     });
 
-    const [defaultParamsMembers] = useState({
+    const [defaultParamsMembers] = useState<any>({
         _id: null,
         name: '',
         company_name: '',
@@ -88,7 +93,7 @@ const ComponentsAppsGroups = () => {
     });
 
     const [params, setParams] = useState<any>(JSON.parse(JSON.stringify(defaultParams)));
-    const [members, setMembers] = useState([]);
+    const [members, setMembers] = useState<any>([]);
     const [memberParams, setMemberParams] = useState<any>(JSON.parse(JSON.stringify(defaultParamsMembers)));
 
     const changeValue = (e: any) => {
@@ -211,7 +216,7 @@ const ComponentsAppsGroups = () => {
                 const data = await response.json();
 
                 if (response.ok) {
-                    let group = filteredItems.find((d) => d.id === params._id);
+                    let group = filteredItems.find((d: any) => d.id === params._id);
                     Object.assign(group, params);
                     showMessage('Group has been updated successfully.');
                 } else {
@@ -236,7 +241,7 @@ const ComponentsAppsGroups = () => {
                 }
             }
         } catch (error) {
-            showMessage(`Error: ${error.message}`, 'error');
+            showMessage(`Error: ${(error as Error).message}`, 'error');
         }
         setAddGroupModal(false);
     };
@@ -245,31 +250,18 @@ const ComponentsAppsGroups = () => {
         const json = JSON.parse(JSON.stringify(defaultParams));
         setParams(json);
         if (groupId) {
-            const group = filteredItems.find(u => u.groupId === groupId);
+            const group = filteredItems.find((u: any) => u.groupId === groupId);
             setParams(group);
         }
         setAddGroupModal(true);
     };
 
     const viewGroup = (groupId: any = null) => {
-        const group = filteredItems.find(u => u.groupId === groupId);
+        const group = filteredItems.find((u: any) => u.groupId === groupId);
         setFilteredItems([]);
         setSelectedGroup(groupId);
         handleGroupClick(groupId);
         setViewGroupModal(true);
-    };
-
-    // Function to delete selected contacts
-    const deleteGroups = () => {
-        if (selectedGroups?.length === 0) {
-            console.log('No contacts selected for deletion');
-            return;
-        }
-
-        const remainingContacts = contacts?.filter(contact => !selectedGroups.includes(contact.email));
-        setGroups(remainingContacts);
-        setSelectedGroups([]);
-        console.log('Selected contacts deleted');
     };
 
     const deleteGroup = async (_id: any = null) => {
@@ -284,11 +276,10 @@ const ComponentsAppsGroups = () => {
 
             if (response.ok) {
                 const deletedId = await response.json();
-                setFilteredItems(filteredItems => filteredItems?.filter(group => group._id !== deletedId.data));
+                setFilteredItems((filteredItems: any) => filteredItems?.filter((group: any) => group._id !== deletedId.data));
                 showMessage('Group has been deleted successfully.');
                 return true;
             } else {
-                console.error('Failed to delete contacts:', response.statusText);
                 showMessage('Group not deleted, Please try again.', 'error');
                 return true;
             }
@@ -312,7 +303,7 @@ const ComponentsAppsGroups = () => {
         });
     };
 
-    const handleGroupClick = async (groupId) => {
+    const handleGroupClick = async (groupId: any) => {
         try {
             const response = await fetch(apis.getMembersForGroup, {
                 method: 'POST',
@@ -339,15 +330,14 @@ const ComponentsAppsGroups = () => {
         const json = JSON.parse(JSON.stringify(defaultParams));
         setParams(json);
         if (_id) {
-            const user = filteredItems.find(u => u._id === _id);
+            const user = filteredItems.find((u: any) => u._id === _id);
             setParams(user);
         }
         setAddContactModal(true);
     };
 
-
     const viewUser = (_id: any = null) => {
-        const user = filteredItems.find(u => u._id === _id);
+        const user = filteredItems.find((u: any) => u._id === _id);
         setCurrentUser(user);
         setViewUserModal(true);
     };
@@ -365,11 +355,10 @@ const ComponentsAppsGroups = () => {
             if (response.ok) {
                 const deletedId = await response.json();
                 setFilteredItems(filteredItems.filter((d: any) => d._id !== deletedId));
-                setMembers(filteredItems => filteredItems.filter(contact => contact._id !== deletedId));
+                setMembers((filteredItems: any) => filteredItems.filter((contact: any) => contact._id !== deletedId));
                 showMessage('User has been deleted successfully.');
                 return true;
             } else {
-                console.error('Failed to delete contacts:', response.statusText);
                 showMessage('User not deleted, Please try again.', 'error');
                 return true;
             }
@@ -378,7 +367,7 @@ const ComponentsAppsGroups = () => {
         }
     };
 
-    const exportContacts = async (selectedGroup) => {
+    const exportContacts = async (selectedGroup: any) => {
         const response = await fetch(`${apis.exportContacts}?groupId=${selectedGroup}`, {
             method: 'GET',
             headers: {
@@ -400,18 +389,20 @@ const ComponentsAppsGroups = () => {
         document.body.appendChild(link);
 
         link.click();
-        link.parentNode.removeChild(link);
-        showMessage(`Contacts of ${selectedGroup} exported Successfully!`)
+        if (link.parentNode) {
+            link.parentNode.removeChild(link);
+        }
+        showMessage(`Contacts of ${selectedGroup} exported Successfully!`);
     };
 
     // Function to import contacts
-    const importContacts = (selectedGroup) => {
+    const importContacts = (selectedGroup: any) => {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.csv';
 
-        input.onchange = async (event) => {
-            const file = event.target.files[0];
+        input.onchange = async (event: any) => {
+            const file = event.target?.files[0];
             if (file) {
                 const formData = new FormData();
                 formData.append('file', file);
@@ -440,7 +431,6 @@ const ComponentsAppsGroups = () => {
             }
         };
 
-        // Trigger file input
         input.click();
     };
 
@@ -457,7 +447,7 @@ const ComponentsAppsGroups = () => {
 
             if (response.ok) {
                 const deletedIds = await response.json();
-                setMembers(filteredItems => filteredItems.filter(contact => !deletedIds.includes(contact._id)));
+                setMembers((filteredItems: any) => filteredItems.filter((contact: any) => !deletedIds.includes(contact._id)));
                 setSelectedRecords([]);
             } else {
                 console.error('Failed to delete contacts:', response.statusText);
@@ -467,27 +457,19 @@ const ComponentsAppsGroups = () => {
         }
     };
 
-    const handleDropdownChange = (e) => {
-        const value = Array.from(
-            event.target.selectedOptions,
-            (option) => option.value
-        );
-        setSelectedOptions(value);
-    };
-
-    const validateEmail = (email) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/ || "";
+    const validateEmail = (email: any) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
     };
 
-    const validateMobileNumber = (number) => {
+    const validateMobileNumber = (number: any) => {
         const mobileRegex = /^\d{10}$/;
         return mobileRegex.test(number);
     };
 
-    const saveUser = async (e) => {
+    const saveUser = async (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
-        const newErrors = {};
+        const newErrors: { [key: string]: string } = {};
 
         if (!params.name) {
             showMessage('Name is required.', 'error');
@@ -518,7 +500,6 @@ const ComponentsAppsGroups = () => {
         if (Object.keys(newErrors).length === 0) {
             try {
                 if (params._id) {
-                    //update user
                     const response = await fetch(`${apis.updateClientById}${params._id}`, {
                         method: 'PUT',
                         headers: {
@@ -531,7 +512,7 @@ const ComponentsAppsGroups = () => {
                     const data = await response.json();
 
                     if (response.ok) {
-                        let user = filteredItems.find((d) => d._id === params._id);
+                        let user = filteredItems.find((d: any) => d._id === params._id);
                         Object.assign(user, params);
                         showMessage('User has been updated successfully.');
                     } else {
@@ -563,7 +544,7 @@ const ComponentsAppsGroups = () => {
                     }
                 }
             } catch (error) {
-                showMessage(`Error: ${error.message}`, 'error');
+                showMessage(`Error: ${(error as Error).message}`, 'error');
             }
             setAddContactModal(false);
         } else {
@@ -572,22 +553,22 @@ const ComponentsAppsGroups = () => {
         }
     };
 
-    const handleProfilePicture = (event) => {
-        const file = event.target.files[0];
+    const handleProfilePicture = (event: any) => {
+        const file = event.target?.files[0];
         if (file) {
             setParams({ ...params, profile_picture: file });
         }
     };
 
-    const handleCompanyProfilePicture = (e) => {
-        const file = e.target.files[0];
+    const handleCompanyProfilePicture = (e: any) => {
+        const file = e.target?.files[0];
         if (file) {
             setParams({ ...params, company_profile_picture: file });
         }
     };
 
     const viewFavouriteContacts = () => {
-        const favouriteContacts = filteredItems.filter(contact => contact.isFavorite === 'yes');
+        const favouriteContacts = filteredItems.filter((contact: any) => contact.isFavorite === 'yes');
         setFilteredItems(favouriteContacts);
     };
 
@@ -595,12 +576,12 @@ const ComponentsAppsGroups = () => {
         setFilteredItems(members);
     };
 
-    const toggleFavorite = async (_id) => {
-        const filteredItem = filteredItems?.map((contact) =>
+    const toggleFavorite = async (_id: any) => {
+        const filteredItem = filteredItems?.map((contact: any) =>
             contact._id === _id ? { ...contact, isFavorite: contact.isFavorite === "yes" ? "no" : "yes" } : contact
         );
         setFilteredItems(filteredItem);
-        const updatedContact = filteredItems.find(contact => contact._id === _id);
+        const updatedContact = filteredItems.find((contact: any) => contact._id === _id);
         try {
             const response = await fetch(`${apis.updateClientById}${_id}`, {
                 method: 'PUT',
@@ -618,13 +599,11 @@ const ComponentsAppsGroups = () => {
         }
     };
 
-    // Function to open the modal and set the selected image
-    const openModal = (imageUrl) => {
+    const openModal = (imageUrl: any) => {
         setSelectedImage(imageUrl);
         setIsModalOpen(true);
     };
 
-    // Function to close the modal
     const closeModal = () => {
         setIsModalOpen(false);
         setSelectedImage(null);
@@ -645,9 +624,9 @@ const ComponentsAppsGroups = () => {
 
     const handleSelectAllChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            setSelectedRecords(filteredItems);  // Select all records
+            setSelectedRecords(filteredItems);
         } else {
-            setSelectedRecords([]);  // Deselect all records
+            setSelectedRecords([]);
         }
     };
     const isAllSelected = selectedRecords.length === filteredItems.length && filteredItems.length > 0;
@@ -703,12 +682,6 @@ const ComponentsAppsGroups = () => {
                                                     <li>
                                                         <button type="button" onClick={() => importContacts(selectedGroup)}>Import Contacts</button>
                                                     </li>
-                                                    {/* <li>
-                                                    <button type="button" onClick={importContacts}>Import Group</button>
-                                                </li>
-                                                <li>
-                                                    <button type="button" onClick={importContacts}>Import Profile Images</button>
-                                                </li> */}
                                                 </ul>
                                             </Dropdown>
                                         </div>
@@ -798,17 +771,20 @@ const ComponentsAppsGroups = () => {
                             {
                                 accessor: 'createdAt',
                                 sortable: true,
-                                render: ({ createdAt }) => (
-                                    <div className="text-gray-700 dark:text-gray-300">
-                                        {new Date(createdAt).toLocaleString(undefined, {
-                                            year: 'numeric',
-                                            month: 'short',
-                                            day: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                        })}
-                                    </div>
-                                ),
+                                render: (record: any) => {
+                                    const { createdAt } = record as any;
+                                    return (
+                                        <div className="text-gray-700 dark:text-gray-300">
+                                            {new Date(createdAt).toLocaleString(undefined, {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                            })}
+                                        </div>
+                                    );
+                                },
                             },
                             {
                                 accessor: 'updatedAt',
@@ -886,30 +862,31 @@ const ComponentsAppsGroups = () => {
                                 {
                                     accessor: 'company_profile_picture',
                                     sortable: true,
-                                    render: ({ _id, company_profile_picture }) => (
-                                        company_profile_picture?.url ? (
+                                    render: (record) => {
+                                        const { _id, company_profile_picture } = record as { _id: any; company_profile_picture: { url?: string } };
+                                        return company_profile_picture?.url ? (
                                             <div className="flex items-center font-semibold">
-                                                <div className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2" onClick={() => openModal(company_profile_picture?.url)}>
+                                                <div className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2" onClick={() => openModal(company_profile_picture.url)}>
                                                     <img className="h-8 w-8 rounded-full object-cover" src={company_profile_picture.url} alt="" />
                                                 </div>
                                             </div>
-                                        ) : null
-                                    ),
+                                        ) : null;
+                                    },
                                 },
                                 {
                                     accessor: 'name',
                                     sortable: true,
-                                    render: ({ name, profile_picture, _id }) => (
-                                        profile_picture?.url ? (
+                                    render: (record) => {
+                                        const { profile_picture, name } = record as { profile_picture: { url?: string }, name: any };
+                                        return profile_picture?.url ? (
                                             <div className="flex items-center font-semibold">
                                                 <div className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2" onClick={() => openModal(profile_picture?.url)}>
                                                     <img className="h-8 w-8 rounded-full object-cover" src={profile_picture?.url} alt="" />
                                                 </div>
                                                 <div>{name}</div>
                                             </div>
-                                        ) : <div>{name}</div>
-
-                                    ),
+                                        ) : <div>{name}</div>;
+                                    },
                                 },
                                 {
                                     accessor: 'email',
@@ -918,17 +895,17 @@ const ComponentsAppsGroups = () => {
                                 {
                                     accessor: 'groupName',
                                     sortable: true,
-                                    render: ({ groupName }) => {
+                                    render: (record: any) => {
+                                        const { groupName } = record;
                                         if (!groupName) {
                                             return null;
                                         }
-
-                                        const options = groupName.split(',').map(option => option.trim());
+                                        const options = groupName.split(',').map((option: any) => option.trim());
 
                                         if (options.length > 1) {
                                             return (
                                                 <select>
-                                                    {options.map((option, index) => (
+                                                    {options.map((option: any, index: any) => (
                                                         <option key={index} value={option}>
                                                             {option}
                                                         </option>

@@ -1,102 +1,69 @@
 'use client';
-import '../../../styles/style.css';
-import IconDownload from '@/components/icon/icon-download';
-import IconEye from '@/components/icon/icon-eye';
+//LIBRARIES
+import React, { useState, Fragment, useRef, useEffect } from 'react';
+import { Tab } from '@headlessui/react';
+import AnimateHeight from 'react-animate-height';
+import Head from 'next/head';
+import Swal from 'sweetalert2';
+import { v4 as uuidv4 } from 'uuid';
+
+//COMPONENTS
 import IconSave from '@/components/icon/icon-save';
 import IconSend from '@/components/icon/icon-send';
-import React, { useState, Fragment, useRef, useEffect } from 'react';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
-import { useSelector } from 'react-redux';
-import { Tab } from '@headlessui/react';
-import 'react-quill/dist/quill.snow.css';
-import AnimateHeight from 'react-animate-height';
 import IconCaretDown from '@/components/icon/icon-caret-down';
 import IconTrashLines from '@/components/icon/icon-trash-lines';
-import Head from 'next/head';
-import CustomEditor from './components-quill';
-import Swal from 'sweetalert2';
 import IconArrowBackward from '@/components/icon/icon-arrow-backward';
 import IconArrowForward from '@/components/icon/icon-arrow-forward';
-import IconCopy from '@/components/icon/icon-copy';
-import IconLink from '@/components/icon/icon-link';
-import IconPlus from '@/components/icon/icon-plus';
+
+//FILES
+import '../../../styles/style.css';
+import 'react-quill/dist/quill.snow.css';
+import CustomEditor from './components-quill';
 import apis from '../../../public/apis';
-import { v4 as uuidv4 } from 'uuid';
-import Tesseract from 'tesseract.js'; // Import Tesseract.js
-import { createRoot } from 'react-dom/client';
 
 const ComponentsAppsCreateNewTemplate = () => {
     const token = localStorage.getItem('authToken');
     const [activeDropdown, setActiveDropdown] = useState<string>('');
 
-    const [height, setHeight] = useState(1080);
-    const [width, setWidth] = useState(1080);
-    const [backgroundColor, setBackgroundColor] = useState('#ffffff');
-    const [dimensions, setDimensions] = useState({ width: 1080, height: 1080 });
+    const [height, setHeight] = useState<any>(1080);
+    const [width, setWidth] = useState<any>(1080);
+    const [backgroundColor, setBackgroundColor] = useState<any>('#ffffff');
+    const [dimensions, setDimensions] = useState<any>({ width: 1080, height: 1080 });
 
-    const [isUploading, setIsUploading] = useState(false); // State to manage the uploading status
-    const [templateImages, setTemplateImages] = useState(null); // State for the selected file
-    const [templateVideos, setTemplateVideos] = useState(null); // State for the selected file
-    const fileInputRef = useRef(null); // Use ref to trigger the hidden input click programmatically
-    const formatInputRef = useRef(null); // Use ref to trigger the hidden input click programmatically
-    const [allTemplates, setAllTemplates] = useState(null); // State for the selected file
-    const [templateName, setTemplateName] = useState(''); // State for template name
-    const [isModalOpen, setIsModalOpen] = useState(false); // For controlling modal visibility
-    const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
-    const [editorText, setEditorText] = useState('');
+    const [isUploading, setIsUploading] = useState<any>(false);
+    const [templateImages, setTemplateImages] = useState<any>(null);
+    const [templateVideos, setTemplateVideos] = useState<any>(null);
+    const fileInputRef = useRef<any>(null);
+    const formatInputRef = useRef<any>(null);
+    const [allTemplates, setAllTemplates] = useState<any>(null);
+    const [variables, setAllVariables] = useState<any>([]);
+    const [templateName, setTemplateName] = useState<any>('');
+    const [variableKey, setVariableKey] = useState<any>('');
+    const [templateRefName, setTemplateRefName] = useState<any>('');
+    const [isDownloadModalOpen, setIsDownloadModalOpen] = useState<any>(false);
+    const [variableAddModel, setVariableAddModel] = useState<any>(false);
+    const [isRefModalOpen, setIsRefModalOpen] = useState<any>(false);
+    const [editorText, setEditorText] = useState<any>('');
 
-    const shapes = [
-        { name: 'Circle', svg: <svg width="64" height="64"><circle cx="32" cy="32" r="30" stroke="black" strokeWidth="2" fill="none" /></svg> },
-        { name: 'Square', svg: <svg width="64" height="64"><rect width="60" height="60" x="2" y="2" stroke="black" strokeWidth="2" fill="none" /></svg> },
-        { name: 'Triangle', svg: <svg width="64" height="64"><polygon points="32,4 64,60 0,60" stroke="black" strokeWidth="2" fill="none" /></svg> },
-        { name: 'Rectangle', svg: <svg width="64" height="64"><rect width="60" height="30" x="2" y="17" stroke="black" strokeWidth="2" fill="none" /></svg> },
-        { name: 'Oval', svg: <svg width="64" height="64"><ellipse cx="32" cy="32" rx="30" ry="20" stroke="black" strokeWidth="2" fill="none" /></svg> },
-        { name: 'Hexagon', svg: <svg width="64" height="64"><polygon points="32,4 60,18 60,46 32,60 4,46 4,18" stroke="black" strokeWidth="2" fill="none" /></svg> },
-        { name: 'Star', svg: <svg width="64" height="64"><polygon points="32,4 38,24 60,24 42,38 48,58 32,46 16,58 22,38 4,24 26,24" stroke="black" strokeWidth="2" fill="none" /></svg> },
-        { name: 'Pentagon', svg: <svg width="64" height="64"><polygon points="32,4 58,24 48,58 16,58 6,24" stroke="black" strokeWidth="2" fill="none" /></svg> },
-        { name: 'Rhombus', svg: <svg width="64" height="64"><polygon points="32,4 60,32 32,60 4,32" stroke="black" strokeWidth="2" fill="none" /></svg> },
-        { name: 'Parallelogram', svg: <svg width="64" height="64"><polygon points="10,4 54,4 44,60 0,60" stroke="black" strokeWidth="2" fill="none" /></svg> }
+    const canvasRef = useRef<any>(null);
+    const [context, setContext] = useState<any>(null);
+    const [history, setHistory] = useState<any>([]);
+    const [layers, setLayers] = useState<any>([]);
+    const [isDragging, setIsDragging] = useState<any>(false);
+    const [selectedLayer, setSelectedLayer] = useState<any>(null);
+    const [currentHistoryIndex, setCurrentHistoryIndex] = useState<any>(-1);
+    const [activeLayerIndex, setActiveLayerIndex] = useState<any>(null);
+    const positions = [
+        `Bottom Left (x50-y${height - 50})`,
+        `Bottom Right (x${width - 140}-y${height - 50})`,
+        `Bottom Middle (x${width / 2 - 20}-y${height - 50})`,
+        `Bottom-Middle-Up (x${width / 2 - 20}-y${height - 80})`,
+        `Bottom-Middle-Down (x${width / 2 - 20}-y${height - 40})`
     ];
-
-    const emojis = [
-        // Faces
-        '😀', '😁', '😂', '🤣', '😃', '😄', '😅', '😆', '😉', '😊', '😋', '😎', '😍', '😘', '🥰', '😗', '😙', '😚', '🙂', '🤗', '🤩',
-        '🤔', '🤨', '😐', '😑', '😶', '🙄', '😏', '😣', '😥', '😮', '🤐', '😯', '😪', '😫', '🥱', '😴', '😌', '😛', '😜', '😝', '🤤',
-
-        // Animals & Nature
-        '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒', '🐔', '🐧',
-        '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🪲', '🐛', '🐌', '🦋', '🐞', '🐜', '🦂', '🐢',
-
-        // Food & Drink
-        '🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦',
-        '🥬', '🥒', '🌶️', '🌽', '🥕', '🧄', '🧅', '🥔', '🍠', '🥐', '🥯', '🍞', '🥖', '🥨', '🧀', '🍕', '🍔', '🍟', '🌭', '🌮', '🍿',
-
-        // Travel & Places
-        '🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚜', '🛵', '🚲', '🛴', '🚨', '🚂', '🚉', '✈️', '🛫', '🛬', '🛳️', '⛴️',
-        '🛥️', '🚤', '🛶', '🚢', '🏠', '🏡', '🏘️', '🏚️', '🏢', '🏣', '🏤', '🏥', '🏦', '🏨', '🏩', '🏪', '🏫', '🏬', '🏭', '🏯', '🏰',
-
-        // Objects
-        '📱', '📲', '💻', '⌨️', '🖥️', '🖨️', '🖱️', '🖲️', '🕹️', '🗜️', '💽', '💾', '💿', '📀', '📼', '📷', '📸', '📹', '🎥', '📞', '☎️',
-        '📟', '📠', '📺', '📻', '⏰', '⏲️', '🕰️', '⌛', '⏳', '📡', '🔋', '🔌', '💡', '🔦', '🕯️', '🛢️', '💸', '💵', '💴', '💶', '💷',
-
-        // Symbols
-        '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️',
-        '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓'
-    ];
-
-    const [visibleShapes, setVisibleShapes] = useState(6); // Initially show 4 shapes
-    const [visibleEmojis, setVisibleEmojis] = useState(20);
-
-    const canvasRef = useRef(null);
-    const [context, setContext] = useState(null);
-    const [history, setHistory] = useState([]);
-    const [redoHistory, setRedoHistory] = useState([]);
-    const [layers, setLayers] = useState([]); // Track layers in the state
-    const [activeLayer, setActiveLayer] = useState(null);
-    const [isDragging, setIsDragging] = useState(false); // Track if an item is being dragged
-    const [selectedLayer, setSelectedLayer] = useState(null);
-    const [currentHistoryIndex, setCurrentHistoryIndex] = useState(-1);
-    const [activeLayerIndex, setActiveLayerIndex] = useState(null); // Track active layer
+    const [selectedPosition, setSelectedPosition] = useState<any>('');
+    const [selectedVariable, setSelectedVariable] = useState<any>('');
+    const [customX, setCustomX] = useState<any>(null);
+    const [customY, setCustomY] = useState<any>(null);
 
     // Effect to set the canvas context and initialize background
     useEffect(() => {
@@ -104,9 +71,9 @@ const ComponentsAppsCreateNewTemplate = () => {
         const ctx = canvas.getContext('2d');
         setContext(ctx);
 
-        // Set a plain white background initially
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const gridSize = 20;
+        drawGrid(ctx, canvas.width, canvas.height, gridSize);
     }, []);
 
     // Redraw the canvas when dimensions, background color, or layers change
@@ -155,32 +122,6 @@ const ComponentsAppsCreateNewTemplate = () => {
         fetchTemplateImages();
     }, []);
 
-    //FETCH TEMPLATE VIDEOS
-    useEffect(() => {
-        const fetchTemplateVideos = async () => {
-            // try {
-            //     const response = await fetch(apis.getAllTemplateImages, {
-            //         method: 'POST',
-            //         headers: {
-            //             'Content-Type': 'application/json',
-            //             'Authorization': `Bearer ${token}`,
-            //         },
-            //     });
-            //     const data = await response.json();
-            //     if (!response.ok) {
-            //         showMessage(data.message, 'error');
-            //         throw new Error(`HTTP error! status: ${response.status}`);
-            //     }
-            //     console.log("Images : ", data);
-            //     setTemplateVideos(data);
-            // } catch (error) {
-            //     console.error('Error fetching contacts:', error);
-            // }
-        };
-
-        fetchTemplateVideos();
-    }, []);
-
     //FETCH ALL TEMPLATES
     useEffect(() => {
         const fetchAllTemplates = async () => {
@@ -206,7 +147,52 @@ const ComponentsAppsCreateNewTemplate = () => {
         fetchAllTemplates();
     }, []);
 
-    const handleMouseDown = (e) => {
+    //FETCH ALL VARIABLES
+    useEffect(() => {
+        const fetchAllVariables = async () => {
+            try {
+                const response = await fetch(apis.getAllVariables, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    showMessage(data.message, 'error');
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                console.log("data : ", data);
+                setAllVariables(data);
+            } catch (error) {
+                console.error('Error fetching contacts:', error);
+            }
+        };
+
+        fetchAllVariables();
+    }, []);
+
+    const drawGrid = (ctx: CanvasRenderingContext2D, width: number, height: number, gridSize: number) => {
+        ctx.strokeStyle = '#BFBFBF';
+        ctx.lineWidth = 0.5;
+
+        for (let x = 0; x <= width; x += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, height);
+            ctx.stroke();
+        }
+
+        for (let y = 0; y <= height; y += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(width, y);
+            ctx.stroke();
+        }
+    };
+
+    const handleMouseDown = (e: any) => {
         const canvas = canvasRef.current;
         const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -214,7 +200,7 @@ const ComponentsAppsCreateNewTemplate = () => {
 
         const ctx = canvas.getContext('2d');
 
-        const layerIndex = layers.findIndex(layer => {
+        const layerIndex = layers.findIndex((layer: any) => {
             const { x: layerX, y: layerY, type } = layer;
 
             if (type === 'svg') {
@@ -224,7 +210,7 @@ const ComponentsAppsCreateNewTemplate = () => {
                     y >= layerY &&
                     y <= layerY + layer.content.height
                 );
-            } else if (type === 'emoji' || type === 'text') {
+            } else if (type === 'text') {
                 ctx.font = `${layer.size || layer.fontSize}px ${layer.fontFamily || 'Arial'}`;
                 const textWidth = ctx.measureText(layer.content).width;
                 return (
@@ -243,7 +229,7 @@ const ComponentsAppsCreateNewTemplate = () => {
         }
     };
 
-    const handleMouseMove = (e) => {
+    const handleMouseMove = (e: any) => {
         if (activeLayerIndex === null || !isDragging) return; // No active layer or not dragging
 
         const canvas = canvasRef.current;
@@ -251,11 +237,10 @@ const ComponentsAppsCreateNewTemplate = () => {
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
-        setLayers((prevLayers) => {
+        setLayers((prevLayers: any) => {
             const updatedLayers = [...prevLayers];
             const activeLayer = updatedLayers[activeLayerIndex];
 
-            // Update the position of the active layer
             activeLayer.x = x;
             activeLayer.y = y;
             return updatedLayers;
@@ -270,37 +255,121 @@ const ComponentsAppsCreateNewTemplate = () => {
         setSelectedLayer(null);
     };
 
-    const drawCanvas = (ctx, canvas) => {
+    const drawCanvas = (ctx: any, canvas: any) => {
         if (!ctx || !canvas) return;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = backgroundColor || 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const gridSize = 20;
+        drawGrid(ctx, canvas.width, canvas.height, gridSize);
 
-        layers.forEach((layer) => {
+        layers.forEach((layer: any) => {
             if (layer.type === 'image') {
                 ctx.drawImage(layer.content, layer.x, layer.y, layer.width, layer.height);
             } else if (layer.type === 'text') {
-                console.log('Drawing content:', layer.content);
+                const quillClassMapping: { [key: string]: string } = {
+                    'ql-size-small': 'small',
+                    'ql-size-large': 'large',
+                    'ql-size-huge': 'huge',
+                    'ql-font-serif': 'serif',
+                    'ql-font-monospace': 'monospace',
+                    'ql-font-sans-serif': 'sans-serif',
+                    'ql-font-roboto': 'Roboto',
+                    'ql-font-open-sans': 'Open Sans',
+                    'ql-font-lato': 'Lato'
+                };
+
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = layer.content;
-                const textElements = tempDiv.querySelectorAll('p, em, strong'); // You can add more tags as needed
+                const textElements = tempDiv.querySelectorAll('p, span, em, strong, u');
+
+                const extractTextContent = (element: any) => {
+                    if (element.children.length === 0) {
+                        return element.innerText || element.textContent;
+                    }
+                    return '';
+                };
+
                 let currentY = layer.y;
+                textElements.forEach((element) => {
+                    let textElement = element as HTMLElement;
+                    const text = extractTextContent(textElement);
+                    if (!text.trim()) return;
 
-                textElements.forEach((textElement) => {
-                    const fontSize = window.getComputedStyle(textElement).fontSize || '24px';
-                    const fontFamily = window.getComputedStyle(textElement).fontFamily || 'Times New Roman';
-                    ctx.font = `${fontSize} ${fontFamily}`;
-                    ctx.fillStyle = window.getComputedStyle(textElement).color || 'black';
+                    let fontSize = '24px';
+                    let fontFamily = 'Times New Roman';
+                    let fontWeight = 'normal';
+                    let fontStyle = 'normal';
+                    let textDecoration = 'none';
+                    let fillColor = 'black';
+                    let isDrawn = 'yes';
+                    let layerName = text;
 
-                    const text = textElement.innerText || textElement.textContent;
+                    textElement.classList.forEach((cls: string) => {
+                        if (cls in quillClassMapping) {
+                            if (cls.startsWith('ql-font')) {
+                                fontFamily = quillClassMapping[cls];
+                            }
+                            if (cls.startsWith('ql-size')) {
+                                fontSize = quillClassMapping[cls];
+                            }
+                        }
+                    });
 
+                    const style = textElement.getAttribute('style');
+                    if (style) {
+                        const colorMatch = style.match(/color:\s*([^;]+);?/i);
+                        if (colorMatch) {
+                            fillColor = colorMatch[1];
+                        }
+                    }
+
+                    if (textElement.tagName === 'STRONG' || textElement.style?.fontWeight === 'bold') {
+                        fontWeight = 'bold';
+                    }
+                    if (textElement.tagName === 'EM' || textElement.style?.fontStyle === 'italic') {
+                        fontStyle = 'italic';
+                    }
+                    if (textElement.tagName === 'U' || textElement.style?.textDecoration === 'underline') {
+                        textDecoration = 'underline';
+                    }
+
+                    if (textDecoration === 'underline') {
+                        ctx.beginPath();
+                        ctx.moveTo(layer.x, currentY + parseFloat(fontSize));
+                        ctx.lineTo(layer.x + ctx.measureText(text).width, currentY + parseFloat(fontSize));
+                        ctx.strokeStyle = fillColor;
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                    }
+
+                    ctx.font = `${fontWeight} ${fontStyle} ${fontSize} ${fontFamily}`;
+                    ctx.fillStyle = fillColor;
+                    ctx.textBaseline = 'center';
                     ctx.fillText(text, layer.x, currentY);
-                    currentY += parseFloat(fontSize); // Move down for the next line
+                    currentY += parseFloat(fontSize);
+
+                    if (layer.isDrawn !== 'yes') {
+                        setLayers((prevLayers: any) =>
+                            prevLayers.map((prevLayer: any) =>
+                                prevLayer.id === layer.id
+                                    ? {
+                                        ...prevLayer,
+                                        fontWeight,
+                                        fontStyle,
+                                        fontSize,
+                                        fontFamily,
+                                        textDecoration,
+                                        fillColor,
+                                        isDrawn,
+                                        layerName
+                                    }
+                                    : prevLayer
+                            )
+                        );
+                    }
                 });
             }
         });
-
     };
 
     const showMessage = (msg = '', type = 'success') => {
@@ -319,77 +388,131 @@ const ComponentsAppsCreateNewTemplate = () => {
     };
 
     // Add an image layer
-    const addImageLayer = (imageSrc) => {
+    const addImageLayer = (imageSrc: any) => {
         const img = new Image();
         img.src = imageSrc;
         img.onload = () => {
-            setLayers(prev => [...prev, { type: 'image', content: img, x: 0, y: 0, width: img.width / 2, height: img.height / 2 }]);
+            setLayers((prev: any) => [...prev, { type: 'image', content: img, x: 0, y: 0, width: img.width / 2, height: img.height / 2 }]);
         };
     };
 
     // Add a text layer, change dimensions for different text
+    const handlePositionChange = (e: any) => {
+        const selectedValue = e.target?.value;
+        setSelectedPosition(selectedValue);
+        const { x, y } = calculatePosition(selectedValue);
+
+        setCustomX(x);
+        setCustomY(y);
+    };
+
+    const handleCustomXChange = (e: any) => {
+        setCustomX(Number(e.target?.value));
+        setSelectedPosition('');
+    };
+
+    const handleCustomYChange = (e: any) => {
+        setCustomY(Number(e.target.value));
+        setSelectedPosition('');
+    };
+
+    const calculatePosition = (position: any) => {
+        let x, y;
+        switch (position) {
+            case `Bottom Left (x50-y${height - 50})`:
+                x = 50;
+                y = height - 50;
+                break;
+
+            case `Bottom Right (x${width - 140}-y${height - 50})`:
+                x = width - 140;
+                y = height - 50;
+                break;
+
+            case `Bottom Middle (x${width / 2 - 20}-y${height - 50})`:
+                x = width / 2 - 20;
+                y = height - 50;
+                break;
+
+            case `Bottom-Middle-Up (x${width / 2 - 20}-y${height - 80})`:
+                x = width / 2 - 20;
+                y = height - 80;
+                break;
+
+            case `Bottom-Middle-Down (x${width / 2 - 20}-y${height - 40})`:
+                x = width / 2 - 20;
+                y = height - 40;
+                break;
+
+            default:
+                x = 0;
+                y = 0;
+        }
+        return { x, y };
+    };
+
     const addTextLayer = () => {
         if (editorText) {
-            console.log("Editor HTML content:", editorText);
-            setLayers(prev => [...prev, { id: uuidv4(), type: 'text', content: editorText, x: 900, y: 1040, size: 24 }]);
+            const { x, y } = calculatePosition(selectedPosition);
+
+            setLayers((prev: any) => [
+                ...prev,
+                {
+                    id: uuidv4(),
+                    type: 'text',
+                    content: editorText,
+                    x: customX !== null ? customX : x,
+                    y: customY !== null ? customY : y,
+                    size: 24
+                }
+            ]);
         }
     };
 
-    const loadMoreShapes = () => {
-        setVisibleShapes((prevVisibleShapes) => prevVisibleShapes + 4); // Load 4 more shapes on each click
-    };
-
-    const loadMoreEmojis = () => {
-        setVisibleEmojis((prevVisibleEmojis) => prevVisibleEmojis + 20); // Load 20 more emojis on each click
-    };
-
-    const toggleDropdown = (dropdownName) => {
+    const toggleDropdown = (dropdownName: any) => {
         setActiveDropdown((prev) => (prev === dropdownName ? '' : dropdownName));
     };
 
     // Handle user input for width and height
-    const handleHeightChange = (e) => {
+    const handleHeightChange = (e: any) => {
         const value = e.target.value;
         setHeight(parseInt(value, 10));
     };
 
-    const handleWidthChange = (e) => {
+    const handleWidthChange = (e: any) => {
         const value = e.target.value;
         setWidth(parseInt(value, 10));
     };
 
     // Handle background color change
-    const handleBackgroundColorChange = (e) => {
+    const handleBackgroundColorChange = (e: any) => {
         const value = e.target.value;
         setBackgroundColor(value);
     };
 
     // Handle preset changes (predefined dimensions)
-    const handlePresetChange = (presetWidth, presetHeight) => {
+    const handlePresetChange = (presetWidth: any, presetHeight: any) => {
         setWidth(presetWidth);
         setHeight(presetHeight);
         setDimensions({ width: presetWidth, height: presetHeight });
     };
 
     const handleUploadClick = () => {
-        fileInputRef.current.click(); // Programmatically click the hidden input
+        fileInputRef.current.click();
     };
 
     const handleUploadClickFormat = () => {
-        formatInputRef.current.click(); // Programmatically click the hidden input
+        formatInputRef.current.click();
     };
 
-    const handleFileChange = async (event) => {
-        const file = event.target.files[0]; // Get the selected file
+    const handleFileChange = async (event: any) => {
+        const file = event.target?.files[0];
         if (file) {
-            setIsUploading(true); // Set uploading state
+            setIsUploading(true);
 
             try {
-                // Replace this logic with your actual upload logic
                 const formData = new FormData();
                 formData.append('templateImages', file);
-
-                // Example upload (replace with actual API endpoint)
                 const response = await fetch(apis.templateImageUpload, {
                     method: 'POST',
                     headers: {
@@ -399,31 +522,26 @@ const ComponentsAppsCreateNewTemplate = () => {
                 });
                 const result = await response.json();
                 if (response.ok) {
-                    setTemplateImages((prevImages) => [...prevImages, result.data]);
+                    setTemplateImages((prevImages: any) => [...prevImages, result.data]);
                     showMessage(result.message);
                 } else {
                     showMessage(result.message, 'error');
-                    alert('Image upload failed.');
                 }
             } catch (error) {
-                console.error('Upload error:', error);
                 alert('An error occurred while uploading the image.');
             }
-            setIsUploading(false); // Reset uploading state
+            setIsUploading(false);
         }
     };
 
-    const handleFormatChange = async (event) => {
-        const file = event.target.files[0]; // Get the selected file
+    const handleFormatChange = async (event: any) => {
+        const file = event.target?.files[0];
         if (file) {
-            setIsUploading(true); // Set uploading state
+            setIsUploading(true);
 
             try {
-                // Replace this logic with your actual upload logic
                 const formData = new FormData();
                 formData.append('templateFormat', file);
-
-                // Example upload (replace with actual API endpoint)
                 const response = await fetch(apis.templateFormatUpload, {
                     method: 'POST',
                     headers: {
@@ -433,40 +551,38 @@ const ComponentsAppsCreateNewTemplate = () => {
                 });
                 const result = await response.json();
                 if (response.ok) {
-                    setAllTemplates((prevImages) => [...prevImages, result.data]);
+                    setAllTemplates((prevImages: any) => [...prevImages, result.data]);
                     showMessage(result.message);
                 } else {
                     showMessage(result.message, 'error');
                     alert('Template Format upload failed.');
                 }
             } catch (error) {
-                console.error('Upload error:', error);
-                alert('An error occurred while uploading the image.');
+                showMessage('An error occurred while uploading the image.', 'error');
             }
-            setIsUploading(false); // Reset uploading state
+            setIsUploading(false);
         }
     };
 
-    const handleDragStart = (e, item) => {
-        e.dataTransfer.setData('text/plain', item?.templateImages?.url); // Store the image URL
+    const handleDragStart = (e: any, item: any) => {
+        e.dataTransfer.setData('text/plain', item?.templateImages?.url);
     };
 
     //DROP IMAGE
-    const handleDrop = (e) => {
+    const handleDrop = (e: any) => {
         e.preventDefault();
-        
-        // Get the type of the dropped content
+
         const data = e.dataTransfer.getData('text/plain');
         const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d'); // Ensure you are getting the correct context
+        const ctx = canvas.getContext('2d');
         const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left; // Drop X position
-        const y = e.clientY - rect.top;   // Drop Y position
-    
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
         if (data.startsWith('<svg')) {
             const svgBlob = new Blob([data], { type: 'image/svg+xml' });
-            const url = URL.createObjectURL(svgBlob); 
-    
+            const url = URL.createObjectURL(svgBlob);
+
             const img = new Image();
             img.onload = () => {
                 ctx.drawImage(img, x, y);
@@ -484,9 +600,9 @@ const ComponentsAppsCreateNewTemplate = () => {
             };
 
             // Update layers and history for SVG
-            setLayers((prevLayers) => {
+            setLayers((prevLayers: any) => {
                 const newLayers = [...prevLayers, newLayer];
-                setHistory((prevHistory) => {
+                setHistory((prevHistory: any) => {
                     const newHistory = [...prevHistory, newLayers];
                     setCurrentHistoryIndex(newHistory.length - 1);
                     return newHistory;
@@ -494,135 +610,63 @@ const ComponentsAppsCreateNewTemplate = () => {
                 return newLayers;
             });
 
-            img.src = url; 
+            img.src = url;
         } else {
             const img = new Image();
             img.src = data;
-            img.crossOrigin = "anonymous"; 
-    
+            img.crossOrigin = "anonymous";
+
             img.onload = () => {
                 const canvasAspectRatio = canvas.width / canvas.height;
                 const imgAspectRatio = img.width / img.height;
-    
+
                 let imgWidth, imgHeight;
-    
+
                 if (canvasAspectRatio > imgAspectRatio) {
-                    imgHeight = canvas.height; 
-                    imgWidth = img.width * (imgHeight / img.height); 
+                    imgHeight = canvas.height;
+                    imgWidth = img.width * (imgHeight / img.height);
                 } else {
                     imgWidth = canvas.width;
                     imgHeight = img.height * (imgWidth / img.width);
                 }
-    
-                const centeredX = (canvas.width - imgWidth) / 2; 
+
+                const centeredX = (canvas.width - imgWidth) / 2;
                 const centeredY = (canvas.height - imgHeight) / 2;
-    
+
                 const newLayer = {
-                    id: uuidv4(), 
+                    id: uuidv4(),
                     type: 'image',
                     content: img,
-                    x: centeredX, 
+                    x: centeredX,
                     y: centeredY,
                     width: imgWidth,
                     height: imgHeight,
                 };
-    
-                setLayers((prevLayers) => {
+
+                setLayers((prevLayers: any) => {
                     const newLayers = [...prevLayers, newLayer];
-    
+
                     setActiveLayerIndex(newLayers.length - 1);
-                    setHistory((prevHistory) => {
+                    setHistory((prevHistory: any) => {
                         const newHistory = [...prevHistory, newLayers];
                         setCurrentHistoryIndex(newHistory.length - 1);
                         return newHistory;
                     });
-    
+
                     return newLayers;
                 });
                 drawCanvas(ctx, canvas);
-                extractFontsFromImage(img);
             };
-        }
-    };
-    
-    const handleDragStartShape = (e, shape) => {
-        const tempSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-
-        if (shape && shape.svg) {
-            const shapeProps = shape.svg.props; // Accessing the props of the React element
-
-            Object.keys(shapeProps).forEach((key) => {
-                if (key !== 'children') {
-                    tempSvg.setAttribute(key, shapeProps[key]);
-                }
-            });
-
-            if (shapeProps.children) {
-                React.Children.forEach(shapeProps.children, (child) => {
-                    const childElement = document.createElementNS('http://www.w3.org/2000/svg', child.type);
-                    Object.keys(child.props).forEach((key) => {
-                        childElement.setAttribute(key, child.props[key]);
-                    });
-
-                    tempSvg.appendChild(childElement);
-                });
-            }
-        } else {
-            console.error("Shape or shape.svg is undefined");
-        }
-
-        const svgString = new XMLSerializer().serializeToString(tempSvg);
-        e.dataTransfer.setData('text/plain', svgString);
-    };
-
-    const handleDragStartEmoji = (e, emoji) => {
-        e.dataTransfer.setData('text/plain', emoji);
-    };
-
-    const handleDropForShapesAndEmojis = (e) => {
-        e.preventDefault();
-
-        const type = e.dataTransfer.getData('type');
-        const canvas = canvasRef.current;
-        const ctx = context;
-
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        console.log("type ; ", type);
-
-        if (type === 'svg') {
-            const svgBlob = new Blob([svgString], { type: 'image/svg+xml' });
-            const url = URL.createObjectURL(svgBlob);
-            console.log("url:", url);
-
-            const img = new Image();
-            img.onload = () => {
-                const width = Math.abs(x - startX); // Optionally calculate size based on clicks
-                const height = Math.abs(y - startY); // Optionally calculate size based on clicks
-                ctx.drawImage(img, Math.min(startX, x), Math.min(startY, y), width || img.width, height || img.height);
-                URL.revokeObjectURL(url); // Clean up the object URL
-            };
-            img.src = url;
-        } else if (type === 'emoji') {
-            const emoji = e.dataTransfer.getData('text/plain');
-            // Set font size and text alignment for emojis
-            ctx.font = '100px serif'; // Set font size and family
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-
-            // Draw the emoji text at the drop position
-            ctx.fillText(emoji, x, y);
         }
     };
 
     const handleClear = () => {
         const ctx = canvasRef.current.getContext('2d');
-        ctx.fillStyle = 'white'; // Set background color
-        ctx.fillRect(0, 0, width, height); // Clear the canvas
-        setLayers([]); // Reset layers
-        setHistory([]); // Clear history for undo/redo
-        setCurrentHistoryIndex(-1); // Reset history index
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, width, height);
+        setLayers([]);
+        setHistory([]);
+        setCurrentHistoryIndex(-1);
     };
 
     const handleUndo = () => {
@@ -651,15 +695,14 @@ const ComponentsAppsCreateNewTemplate = () => {
             return;
         }
 
-        // Generate SVG from Canvas
         const svgData = generateSVGFromCanvas();
-        console.log("svgData : ", svgData);
 
-        // Convert the SVG string to a Blob
         const blob = new Blob([svgData], { type: 'image/svg+xml' });
         const formData = new FormData();
         formData.append('name', templateName);
         formData.append('template', blob, `${templateName}.svg`);
+        formData.append('height', height);
+        formData.append('width', width);
 
         try {
             const response = await fetch(apis.createTemplate, {
@@ -673,107 +716,130 @@ const ComponentsAppsCreateNewTemplate = () => {
             const newTemplate = await response.json();
             if (response.ok) {
                 console.log("newTemplate:", newTemplate);
-                setAllTemplates((prevTemplates) => [...prevTemplates, newTemplate.data]);
+                setAllTemplates((prevTemplates: any) => [...prevTemplates, newTemplate.data]);
                 showMessage('Template uploaded successfully!');
             } else {
                 showMessage(newTemplate.message, 'error');
             }
             closeDownloadModal();
         } catch (error) {
-            console.error('Error uploading template:', error);
+            showMessage('Error uploading template', 'error');
+        }
+    };
+
+    const saveVariable = async () => {
+        if (!variableKey) {
+            alert('Variable name is required to proceed.');
+            return;
+        }
+        const data = {
+            key: variableKey,
+        };
+        try {
+            const response = await fetch(apis.createVariable, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify(data),
+            });
+
+            const responseData = await response.json();
+            if (response.ok) {
+                setAllVariables([...variables, responseData.data]);
+                showMessage(responseData.message);
+            } else {
+                showMessage(responseData.message, 'error');
+            }
+            closeVariableAddModel();
+        } catch (error) {
+            showMessage('Error occured while Adding Variable', 'error');
+        }
+    };
+
+    const handleReferenceTemplate = async () => {
+        if (!templateRefName) {
+            alert('Template name is required to proceed.');
+            return;
+        }
+
+        const svgData = generateSVGFromCanvas();
+        const blob = new Blob([svgData], { type: 'image/svg+xml' });
+        const formData = new FormData();
+        formData.append('name', templateRefName);
+        formData.append('templateFormat', blob, `${templateRefName}.svg`);
+        formData.append('height', height);
+        formData.append('width', width);
+        console.log("layers : ", layers);
+
+        const layerData = layers.map((layer: any) => ({
+            ...layer
+        }));
+        formData.append('layers', JSON.stringify(layerData));
+
+        try {
+            const response = await fetch(apis.templateReferenceFormatUpload, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            const newTemplate = await response.json();
+            if (response.ok) {
+                showMessage(newTemplate.message);
+            } else {
+                showMessage(newTemplate.message, 'error');
+            }
+            closeDownloadModal();
+        } catch (error) {
             showMessage('Error uploading template', 'error');
         }
     };
 
     const openDownloadModal = () => setIsDownloadModalOpen(true);
+    const openRefModal = () => setIsRefModalOpen(true);
+    const openVariableAdd = () => setVariableAddModel(true);
     const closeDownloadModal = () => setIsDownloadModalOpen(false);
+    const closeVariableAddModel = () => setVariableAddModel(false);
+    const closeRefModal = () => setIsRefModalOpen(false);
 
-    const moveLayerUp = (index) => {
-        if (index === 0) return;
-        const newLayers = [...layers];
-        const [movedLayer] = newLayers.splice(index, 1);
-        newLayers.splice(index - 1, 0, movedLayer);
-        setLayers(newLayers);
-    };
-
-    const moveLayerDown = (index) => {
-        if (index === layers.length - 1) return;
-        const newLayers = [...layers];
-        const [movedLayer] = newLayers.splice(index, 1);
-        newLayers.splice(index + 1, 0, movedLayer);
-        setLayers(newLayers);
-    };
-
-    const handleDeleteLayer = (layerToDelete) => {
-        const updatedLayers = layers.filter((layer) => layer !== layerToDelete);
+    const handleDeleteLayer = (layerToDelete: any) => {
+        const updatedLayers = layers.filter((layer: any) => layer !== layerToDelete);
         setLayers(updatedLayers);
-    };
-
-    const downloadSampleTemplate = () => {
-        const canvas = canvasRef.current;
-
-        // Convert canvas to PNG and download it
-        const dataURL = canvas.toDataURL('image/jpeg');
-        const link = document.createElement('a');
-        link.href = dataURL;
-        link.download = `${templateName}.jpeg`; // Use the entered template name as the file name
-        link.click();
     };
 
     const generateSVGFromCanvas = () => {
         const canvas = canvasRef.current;
 
-        // 1. Get the current canvas as a base64 image (PNG format)
         const dataURL = canvas.toDataURL("image/png");
-
-        // 2. Create an SVG document embedding the image
         const svgContent = `
             <svg xmlns="http://www.w3.org/2000/svg" width="${canvas.width}" height="${canvas.height}">
                 <image href="${dataURL}" width="${canvas.width}" height="${canvas.height}" />
             </svg>
         `;
 
-        return svgContent; // This is the SVG as a string
+        return svgContent;
     };
 
-    const onDragEnd = (result) => {
+    const onDragEnd = (result: any) => {
         const { source, destination } = result;
 
-        if (!destination || source.index === destination.index) return; // Exit if dropped outside or if position didn't change
+        if (!destination || source.index === destination.index) return;
 
         const reorderedLayers = Array.from(layers);
-        const [removed] = reorderedLayers.splice(source.index, 1); // Remove the dragged item
-        reorderedLayers.splice(destination.index, 0, removed); // Insert at the new location
+        const [removed] = reorderedLayers.splice(source.index, 1);
+        reorderedLayers.splice(destination.index, 0, removed);
 
-        setLayers(reorderedLayers); // Update the layers state
+        setLayers(reorderedLayers);
     };
 
-    const extractFontsFromImage = (img) => {
-        // Create a canvas to draw the image
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-
-        // Set the canvas size to the image size
-        canvas.width = img.width;
-        canvas.height = img.height;
-
-        // Draw the image onto the canvas
-        ctx.drawImage(img, 0, 0);
-
-        // Use Tesseract.js to recognize text from the canvas
-        Tesseract.recognize(
-            canvas.toDataURL(), // Use the canvas data URL
-            'eng', // Language
-        ).then(({ data: { text, symbols } }) => {
-            console.log('Extracted Text:', text);
-
-            // Log detected symbols, which may contain font information
-            symbols.forEach((symbol) => {
-                console.log(`Symbol: ${symbol.text}, Font: ${symbol.fontName || 'unknown'}`); // Font detection is limited
-            });
-        }).catch((error) => {
-            console.error('Error during OCR:', error);
-        });
+    const handleVariableChange = (e: any) => {
+        const selectedValue = e.target.value;
+        setSelectedVariable(selectedValue);
+        setEditorText(selectedValue);
     };
 
     return (
@@ -894,7 +960,6 @@ const ComponentsAppsCreateNewTemplate = () => {
 
                         {(activeDropdown === '' || activeDropdown === 'upload') && (
                             <div className="relative">
-                                {/* Dropdown button */}
                                 <button
                                     type="button"
                                     className={`btn dropdown-toggle w-full bg-gray-100 hover:bg-gray-200 rounded-md border border-gray-300 text-gray-800 font-medium py-2 px-4 flex justify-between items-center`}
@@ -906,13 +971,10 @@ const ComponentsAppsCreateNewTemplate = () => {
                                     </span>
                                 </button>
 
-                                {/* Dropdown content */}
                                 <AnimateHeight duration={300} height={activeDropdown === 'upload' ? 'auto' : 0}>
                                     <div className="p-4">
-                                        {/* Action buttons */}
                                         <div className="flex items-center justify-between gap-2 w-full">
                                             <div>
-                                                {/* Hidden file input */}
                                                 <input
                                                     type="file"
                                                     accept="image/*"
@@ -920,7 +982,6 @@ const ComponentsAppsCreateNewTemplate = () => {
                                                     onChange={handleFileChange} // Handle file change
                                                     className="hidden" // Hide the default file input
                                                 />
-                                                {/* Button to trigger the hidden file input */}
                                                 <button
                                                     type="button"
                                                     className="btn btn-success bg-green-500 text-white hover:bg-green-600 rounded-md px-4 py-2"
@@ -939,7 +1000,6 @@ const ComponentsAppsCreateNewTemplate = () => {
                                             </button>
                                         </div>
 
-                                        {/* Tabbed content */}
                                         <div className="mt-4">
                                             <Tab.Group>
                                                 <Tab.List className="flex w-full border-b border-gray-200">
@@ -969,7 +1029,7 @@ const ComponentsAppsCreateNewTemplate = () => {
                                                     <Tab.Panel>
                                                         <div className="grid grid-cols-2 gap-4 max-h-[300px] overflow-y-auto">
                                                             {Array.isArray(templateImages) && templateImages.length > 0 ? (
-                                                                templateImages.map((item, index) => (
+                                                                templateImages.map((item: any, index: any) => (
                                                                     <div key={item?._id} className="border rounded overflow-hidden">
                                                                         <img
                                                                             src={item?.templateImages?.url}
@@ -987,10 +1047,9 @@ const ComponentsAppsCreateNewTemplate = () => {
                                                     </Tab.Panel>
 
                                                     <Tab.Panel>
-                                                        <div className="grid grid-cols-2 gap-4 max-h-[300px] overflow-y-auto"> {/* Adjust height for scroll */}
-                                                            {/* Thumbnails for videos */}
+                                                        <div className="grid grid-cols-2 gap-4 max-h-[300px] overflow-y-auto">
                                                             {Array.isArray(templateVideos) && templateVideos.length > 0 ? (
-                                                                templateVideos?.map((item, index) => (
+                                                                templateVideos?.map((item: any, index: any) => (
                                                                     <div key={item._id} className="border rounded overflow-hidden">
                                                                         <video controls className="w-full h-20 object-cover rounded">
                                                                             <source src={item.templateVideos.url}
@@ -1012,86 +1071,6 @@ const ComponentsAppsCreateNewTemplate = () => {
                             </div>
                         )}
 
-                        {(activeDropdown === '' || activeDropdown === 'choose') && (
-                            <div className="relative">
-                                <button
-                                    type="button"
-                                    className={`btn dropdown-toggle w-full bg-gray-100 hover:bg-gray-200 rounded-md border border-gray-300 text-gray-800 font-medium py-2 px-4 flex justify-between items-center`}
-                                    onClick={() => toggleDropdown('choose')}
-                                >
-                                    Choose Template
-                                    <span className={`inline-block transition-transform duration-300 ${activeDropdown === 'choose' ? 'rotate-180' : ''}`}>
-                                        <IconCaretDown />
-                                    </span>
-                                </button>
-                                <div>
-                                    <AnimateHeight duration={300} height={activeDropdown === 'choose' ? 'auto' : 0}>
-                                        <br />
-                                        <div className="mt-4">
-                                            <Tab.Group>
-                                                <Tab.List className="flex w-full border-b border-gray-200">
-                                                    <Tab as={Fragment}>
-                                                        {({ selected }) => (
-                                                            <button
-                                                                className={`${selected ? 'border-b-2 border-secondary text-secondary' : ''
-                                                                    } flex-1 py-2 text-center text-gray-700 hover:text-secondary transition-colors`}
-                                                            >
-                                                                Template Library
-                                                            </button>
-                                                        )}
-                                                    </Tab>
-                                                </Tab.List>
-
-                                                <Tab.Panels className="mt-4">
-                                                    <Tab.Panel as={Fragment}>
-                                                        {allTemplates && allTemplates.length > 0 ? (
-                                                            <div className="grid grid-cols-2 gap-2 scrollable"> {/* Added scrollable class for scrolling */}
-                                                                {/* Thumbnails for images */}
-                                                                {allTemplates.map((item, index) => (
-                                                                    <div key={item._id} className="border rounded overflow-hidden">
-                                                                        <img
-                                                                            src={item.templateFormat?.url} // Using the image URL from the `template` object
-                                                                            alt={`Thumbnail ${index + 1}`}
-                                                                            className="w-full max-h-25 object-cover rounded"
-                                                                        />
-                                                                    </div>
-                                                                ))}
-                                                            </div>
-                                                        ) : (
-                                                            <p className="text-gray-600">No templates available</p> // Display message if array is empty
-                                                        )}
-                                                    </Tab.Panel>
-                                                </Tab.Panels>
-                                            </Tab.Group>
-                                        </div>
-                                        <br />
-                                        {/* Upload Template Button */}
-                                        <div className="flex justify-center">
-                                            <div>
-                                                {/* Hidden file input */}
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    ref={formatInputRef} // Reference to input
-                                                    onChange={handleFormatChange} // Handle file change
-                                                    className="hidden" // Hide the default file input
-                                                />
-                                                {/* Button to trigger the hidden file input */}
-                                                <button
-                                                    type="button"
-                                                    className="btn items-center bg-gray-200 text-black hover:bg-gray-400 rounded-md px-4 py-2"
-                                                    onClick={handleUploadClickFormat} // Open modal on click
-                                                >
-                                                    Upload Template
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </AnimateHeight>
-
-                                </div>
-                            </div>
-                        )}
-
                         {(activeDropdown === '' || activeDropdown === 'typography') && (
                             <div className="relative">
                                 <button
@@ -1107,183 +1086,70 @@ const ComponentsAppsCreateNewTemplate = () => {
                                 <div>
                                     <AnimateHeight duration={300} height={activeDropdown === 'typography' ? 'auto' : 0}>
                                         <br />
-                                        <div className="items-center">
+                                        <div className="items-center overflow-auto" style={{ maxHeight: '400px' }}>
                                             <Head>
                                                 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Montserrat:wght@400;500;700&family=Open+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
                                             </Head>
 
                                             {/* Custom Editor */}
-                                            <CustomEditor onChange={(text) => setEditorText(text)} />
+                                            <button type='button' className='btn btn-outline-success' onClick={openVariableAdd}>Add Variable</button>
+                                            <br />
+                                            <select
+                                                className="form-select"
+                                                onChange={handleVariableChange}
+                                                value={selectedVariable}
+                                            >
+                                                <option value="">Select Variable</option>
+                                                {Array.isArray(variables) && variables.map((variable) => (
+                                                    <option key={variable.name} value={variable.name}>
+                                                        {variable.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <br />
+                                            <br />
+                                            <CustomEditor
+                                                onChange={(text: any) => setEditorText(text)}
+                                                value={editorText}
+                                            />
                                             <br />
 
-                                            {/* Add Text Button */}
-                                            <button type="button" className="btn btn-success flex-1 items-center" onClick={addTextLayer}>
+                                            <select className="form-select" onChange={handlePositionChange} value={selectedPosition}>
+                                                <option value="">Select Position</option>
+                                                {positions.map(position => (
+                                                    <option key={position} value={position}>
+                                                        {position}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <br />
+
+                                            <div className="grid">
+                                                <div>
+                                                    <label>X (pixels):</label>
+                                                    <input
+                                                        type="number"
+                                                        value={customX !== null ? customX : calculatePosition(selectedPosition).x}
+                                                        onChange={handleCustomXChange}
+                                                        className="form-control"
+                                                        placeholder="Custom X"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label>Y (pixels):</label>
+                                                    <input
+                                                        type="number"
+                                                        value={customY !== null ? customY : calculatePosition(selectedPosition).y}
+                                                        onChange={handleCustomYChange}
+                                                        className="form-control"
+                                                        placeholder="Custom Y"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <button type="button" className="btn btn-success" onClick={addTextLayer}>
                                                 Add Text
                                             </button>
                                         </div>
-                                    </AnimateHeight>
-                                </div>
-                            </div>
-                        )}
-
-                        {(activeDropdown === '' || activeDropdown === 'shapes') && (
-                            <div className="relative">
-                                <button
-                                    type="button"
-                                    className={`btn dropdown-toggle w-full bg-gray-100 hover:bg-gray-200 rounded-md border border-gray-300 text-gray-800 font-medium py-2 px-4 flex justify-between items-center`}
-                                    onClick={() => toggleDropdown('shapes')}
-                                >
-                                    Shapes
-                                    <span className={`inline-block transition-transform duration-300 ${activeDropdown === 'shapes' ? 'rotate-180' : ''}`}>
-                                        <IconCaretDown />
-                                    </span>
-                                </button>
-                                <div>
-                                    <AnimateHeight duration={300} height={activeDropdown === 'shapes' ? 'auto' : 0}>
-                                        {/* <ul className="mt-2 bg-white rounded shadow-md"> */}
-                                        <br />
-                                        <div className="mt-4">
-                                            <Tab.Group>
-                                                <Tab.List className="flex w-full border-b border-gray-200">
-                                                    <Tab as={Fragment}>
-                                                        {({ selected }) => (
-                                                            <button
-                                                                className={`${selected ? 'border-b-2 border-secondary text-secondary' : ''
-                                                                    } flex-1 py-2 text-center text-gray-700 hover:text-secondary transition-colors`}
-                                                            >
-                                                                Default Shapes
-                                                            </button>
-                                                        )}
-                                                    </Tab>
-                                                    <Tab as={Fragment}>
-                                                        {({ selected }) => (
-                                                            <button
-                                                                className={`${selected ? 'border-b-2 border-secondary text-secondary' : ''
-                                                                    } flex-1 py-2 text-center text-gray-700 hover:text-secondary transition-colors`}
-                                                            >
-                                                                Emojis
-                                                            </button>
-                                                        )}
-                                                    </Tab>
-                                                </Tab.List>
-
-                                                <Tab.Panels className="mt-4">
-                                                    {/* Shapes Panel */}
-                                                    <Tab.Panel>
-                                                        <div
-                                                            className="grid grid-cols-2 gap-4 overflow-auto"
-                                                            style={{ maxHeight: '300px', overflowY: 'auto' }} // Added overflowY style
-                                                        >
-                                                            {shapes.slice(0, visibleShapes).map((shape, index) => (
-                                                                <div
-                                                                    key={index}
-                                                                    className="border p-2 rounded overflow-hidden flex items-center justify-center"
-                                                                    draggable
-                                                                    onDragStart={(e) => handleDragStartShape(e, shape)} // Drag Start for Shapes
-                                                                >
-                                                                    <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-                                                                        {shape.svg}
-                                                                    </svg>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-
-                                                        {/* Conditionally render Load More button for Shapes */}
-                                                        {visibleShapes < shapes.length && (
-                                                            <div className="mt-4 flex justify-center">
-                                                                <button
-                                                                    onClick={loadMoreShapes}
-                                                                    className="px-4 py-2 bg-gray-200 text-black hover:bg-gray-400 rounded-md"
-                                                                >
-                                                                    Load More
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </Tab.Panel>
-
-                                                    {/* Emojis Panel */}
-                                                    <Tab.Panel>
-                                                        <div
-                                                            className="grid grid-cols-5 gap-4 overflow-auto"
-                                                            style={{ maxHeight: '300px', overflowY: 'auto' }} // Added overflowY style
-                                                        >
-                                                            {emojis.slice(0, visibleEmojis).map((emoji, index) => (
-                                                                <div
-                                                                    key={index}
-                                                                    className="text-4xl flex items-center justify-center"
-                                                                    draggable
-                                                                    onDragStart={(e) => handleDragStartEmoji(e, emoji)} // Drag Start for Emojis
-                                                                >
-                                                                    {emoji}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-
-                                                        {/* Conditionally render Load More button for Emojis */}
-                                                        {visibleEmojis < emojis.length && (
-                                                            <div className="mt-4 flex justify-center">
-                                                                <button
-                                                                    onClick={loadMoreEmojis}
-                                                                    className="px-4 py-2 bg-gray-200 text-black hover:bg-gray-400 rounded-md"
-                                                                >
-                                                                    Load More
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </Tab.Panel>
-                                                </Tab.Panels>
-                                            </Tab.Group>
-                                        </div>
-                                        {/* </ul> */}
-                                    </AnimateHeight>
-                                </div>
-                            </div>
-                        )}
-
-                        {(activeDropdown === '' || activeDropdown === 'qrcode') && (
-                            <div className="relative">
-                                <button
-                                    type="button"
-                                    className={`btn dropdown-toggle w-full bg-gray-100 hover:bg-gray-200 rounded-md border border-gray-300 text-gray-800 font-medium py-2 px-4 flex justify-between items-center`}
-                                    onClick={() => toggleDropdown('qrcode')}
-                                >
-                                    QR Code
-                                    <span className={`inline-block transition-transform duration-300 ${activeDropdown === 'qrcode' ? 'rotate-180' : ''}`}>
-                                        <IconCaretDown />
-                                    </span>
-                                </button>
-                                <div>
-                                    <AnimateHeight duration={300} height={activeDropdown === 'qrcode' ? 'auto' : 0}>
-                                        {/* <ul className="mt-2 bg-white rounded shadow-md"> */}
-                                        <br />
-                                        <div className="mb-5">
-                                            <div className="flex">
-                                                <div className="bg-[#eee] flex justify-center items-center ltr:rounded-l-md rtl:rounded-r-md px-3 font-semibold border ltr:border-r-0 rtl:border-l-0 border-white-light dark:border-[#17263c] dark:bg-[#1b2e4b]">
-                                                    Height
-                                                </div>
-                                                <input type="number" placeholder="px" className="form-input ltr:rounded-l-none rtl:rounded-r-none" />
-                                            </div>
-                                        </div>
-                                        <div className="mb-5">
-                                            <div className="flex">
-                                                <div className="bg-[#eee] flex justify-center items-center ltr:rounded-l-md rtl:rounded-r-md px-3 font-semibold border ltr:border-r-0 rtl:border-l-0 border-white-light dark:border-[#17263c] dark:bg-[#1b2e4b]">
-                                                    Width
-                                                </div>
-                                                <input type="number" placeholder="px" className="form-input ltr:rounded-l-none rtl:rounded-r-none" />
-                                            </div>
-                                        </div>
-                                        <div className="mb-5">
-                                            <div className="flex">
-                                                <div className="bg-[#eee] flex justify-center items-center ltr:rounded-l-md rtl:rounded-r-md px-3 font-semibold border ltr:border-r-0 rtl:border-l-0 border-white-light dark:border-[#17263c] dark:bg-[#1b2e4b]">
-                                                    Background
-                                                </div>
-                                                <input
-                                                    type="color"
-                                                    className="form-input h-[40px] w-full ltr:rounded-l-none rtl:rounded-r-none border border-white-light dark:border-[#17263c]"
-                                                />
-                                            </div>
-                                        </div>
-                                        {/* </ul> */}
                                     </AnimateHeight>
                                 </div>
                             </div>
@@ -1318,12 +1184,7 @@ const ComponentsAppsCreateNewTemplate = () => {
                                 height={height}
                                 className="border border-gray-400"
                                 onDrop={(e) => {
-                                    const type = e.dataTransfer.getData('type');
-                                    if (type === 'svg' || type === 'emoji') {
-                                        handleDropForShapesAndEmojis(e); // Handle the shapes and emojis drop
-                                    } else {
-                                        handleDrop(e); // Handle images drop
-                                    }
+                                    handleDrop(e); // Handle images drop
                                 }}
                                 onDragOver={(e) => e.preventDefault()}
                                 onMouseDown={handleMouseDown}
@@ -1336,102 +1197,40 @@ const ComponentsAppsCreateNewTemplate = () => {
 
                 {/* Right Panel with Buttons */}
                 <div className="panel mb-5 w-[260px] p-2 bg-white shadow-md rounded-md">
-                    {/* Consistent width for the panel with padding and shadow */}
-                    <div className="flex items-center justify-between gap-2 w-full mb-3">
-                        <button
-                            type="button"
-                            className="btn btn-secondary flex-1 flex items-center justify-center gap-2 px-4 py-2 text-white bg-gray-600 rounded-md hover:bg-gray-700 transition"
-                            onClick={downloadSampleTemplate}
-                        >
-                            <IconDownload className="shrink-0" />
-                            Download
-                        </button>
-
+                    <div className="flex items-center mb-3">
                         <button
                             type="button"
                             className="btn btn-success flex-1 flex items-center justify-center gap-2 px-4 py-2 text-white bg-green-600 rounded-md hover:bg-green-700 transition"
-                            onClick={openDownloadModal}
+                            onClick={openRefModal}
                         >
                             <IconSave className="shrink-0" />
-                            Save
+                            Save For Ref. Template Format
                         </button>
                     </div>
                     <div className="flex items-center mb-3">
                         Layers
                     </div>
 
-                    {/* Buttons for layer actions */}
-                    <div className="flex items-center justify-between w-full mb-3">
-                        <div className="dropdown shrink-0 block p-2 rounded-full bg-white-light/40 dark:bg-dark/40 hover:text-primary hover:bg-white-light/90 dark:hover:bg-dark/60">
-                            <button>
-                                <IconCopy />
-                            </button>
-                        </div>
-                        <div className="dropdown shrink-0 block p-2 rounded-full bg-white-light/40 dark:bg-dark/40 hover:text-primary hover:bg-white-light/90 dark:hover:bg-dark/60">
-                            <button>
-                                <IconEye />
-                            </button>
-                        </div>
-                        <div className="dropdown shrink-0 block p-2 rounded-full bg-white-light/40 dark:bg-dark/40 hover:text-primary hover:bg-white-light/90 dark:hover:bg-dark/60">
-                            <button onClick={() => addImageLayer('https://yt3.googleusercontent.com/viNp17XpEF-AwWwOZSj_TvgobO1CGmUUgcTtQoAG40YaYctYMoUqaRup0rTxxxfQvWw3MvhXesw=s900-c-k-c0x00ffffff-no-rj')}>
-                                <IconPlus />
-                            </button>
-                        </div>
-                        <div className="dropdown shrink-0 block p-2 rounded-full bg-white-light/40 dark:bg-dark/40 hover:text-primary hover:bg-white-light/90 dark:hover:bg-dark/60">
-                            <button>
-                                <IconLink />
-                            </button>
-                        </div>
-                        <div className="dropdown shrink-0 block p-2 rounded-full bg-white-light/40 dark:bg-dark/40 hover:text-primary hover:bg-white-light/90 dark:hover:bg-dark/60">
-                            <button onClick={() => handleDeleteLayer(selectedLayer)}>
-                                <IconTrashLines />
-                            </button>
-                        </div>
-                    </div>
-
                     {/* Display the list of layers */}
                     <div className="bg-white p-2 rounded-md shadow-md">
                         {layers.length > 0 ? (
-                            <ul className="divide-y divide-gray-300" style={{ maxHeight: '300px', overflowY: 'auto' }}> {/* Set a max height */}
-                                <DragDropContext onDragEnd={onDragEnd}>
-                                    <Droppable droppableId="layers">
-                                        {(provided) => (
-                                            <ul {...provided.droppableProps} ref={provided.innerRef}>
-                                                {layers.map((layer, index) => (
-                                                    <Draggable key={layer.id} draggableId={layer.id} index={index}>
-                                                        {(provided) => (
-                                                            <li
-                                                                ref={provided.innerRef}
-                                                                {...provided.draggableProps}
-                                                                {...provided.dragHandleProps}
-                                                                className={`flex items-center justify-between p-2 cursor-pointer ${selectedLayer === layer ? 'bg-blue-100' : ''
-                                                                    }`}
-                                                                onClick={() => setSelectedLayer(layer)}
-                                                            >
-                                                                <span>
-                                                                    {layer.type === 'image' ? `Image ${index + 1}` : `Text ${index + 1}`}
-                                                                </span>
-
-                                                                <div className="flex space-x-2">
-                                                                    <button onClick={() => moveLayerUp(index)} className="text-gray-600 hover:text-gray-900">
-                                                                        <IconArrowForward />
-                                                                    </button>
-                                                                    <button onClick={() => moveLayerDown(index)} className="text-gray-600 hover:text-gray-900">
-                                                                        <IconArrowBackward />
-                                                                    </button>
-                                                                    <button onClick={() => handleDeleteLayer(layer)} className="text-red-600 hover:text-red-900">
-                                                                        <IconTrashLines />
-                                                                    </button>
-                                                                </div>
-                                                            </li>
-                                                        )}
-                                                    </Draggable>
-                                                ))}
-                                                {provided.placeholder}
-                                            </ul>
-                                        )}
-                                    </Droppable>
-                                </DragDropContext>
+                            <ul className="divide-y divide-gray-300" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                <ul>
+                                    {layers.map((layer: any, index: number) => (
+                                        <li
+                                            key={layer.id}
+                                            className={`flex items-center justify-between p-2 cursor-pointer ${selectedLayer === layer ? 'bg-blue-100' : ''}`}
+                                            onClick={() => setSelectedLayer(layer)}
+                                        >
+                                            <span>{layer.layerName}</span>
+                                            <div className="flex space-x-2">
+                                                <button onClick={() => handleDeleteLayer(layer)} className="text-red-600 hover:text-red-900">
+                                                    <IconTrashLines />
+                                                </button>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
                             </ul>
                         ) : (
                             <p className="text-gray-500 text-center">No layers available</p>
@@ -1439,6 +1238,7 @@ const ComponentsAppsCreateNewTemplate = () => {
                     </div>
                 </div>
 
+                {/* SAVE TEMPLATE */}
                 {isDownloadModalOpen && (
                     <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
                         <div className="bg-white p-6 rounded-lg shadow-lg">
@@ -1470,6 +1270,69 @@ const ComponentsAppsCreateNewTemplate = () => {
                     </div>
                 )}
 
+                {/* SAVE VARIABLE */}
+                {variableAddModel && (
+                    <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
+                        <div className="bg-white p-6 rounded-lg shadow-lg">
+                            <h2 className="text-xl font-semibold mb-4">Enter Variable Name</h2>
+                            <input
+                                type="text"
+                                className="form-input w-full border border-gray-300 p-2 rounded-md mb-4"
+                                value={variableKey}
+                                onChange={(e) => setVariableKey(e.target.value)}
+                                placeholder="Variable Key"
+                            />
+                            <div className="flex justify-end gap-2">
+                                <button
+                                    type="button"
+                                    className="btn bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                                    onClick={closeVariableAddModel}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                                    onClick={saveVariable}
+                                >
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* SAVE REF TEMPLATE */}
+                {isRefModalOpen && (
+                    <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
+                        <div className="bg-white p-6 rounded-lg shadow-lg">
+                            <h2 className="text-xl font-semibold mb-4">Enter Template Name</h2>
+                            <input
+                                type="text"
+                                className="form-input w-full border border-gray-300 p-2 rounded-md mb-4"
+                                value={templateRefName}
+                                onChange={(e) => setTemplateRefName(e.target.value)}
+                                placeholder="Template name"
+                            />
+                            <div className="flex justify-end gap-2">
+                                <button
+                                    type="button"
+                                    className="btn bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                                    onClick={closeRefModal}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+                                    onClick={handleReferenceTemplate}
+                                >
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div >
     );

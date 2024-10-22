@@ -6,7 +6,8 @@
         "dev": "next dev",
         "build": "next build",
         "start": "next start",
-        "lint": "next lint"
+        "lint": "next lint",
+        "export": "next export"
     },
     "dependencies": {
         "@emotion/react": "^11.13.3",
@@ -43,7 +44,6 @@
         "react": "^18.3.1",
         "react-animate-height": "^3.1.0",
         "react-apexcharts": "^1.4.0",
-        "react-beautiful-dnd": "^13.1.1",
         "react-click-away-listener": "^2.2.2",
         "react-copy-to-clipboard": "^5.1.0",
         "react-countup": "^6.4.1",
@@ -81,6 +81,7 @@
         "@types/react-redux": "^7.1.32",
         "@types/react-text-mask": "^5.4.11",
         "@types/sortablejs": "^1.15.0",
+        "@types/uuid": "^10.0.0",
         "autoprefixer": "^10.4.17",
         "postcss": "^8.4.35",
         "prettier": "^2.8.0",

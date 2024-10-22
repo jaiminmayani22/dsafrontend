@@ -946,7 +946,7 @@ const ComponentsAppsMailbox = () => {
                     showMessage(totalSelected + ' Mail Restored.');
                     searchMails(false);
                 } else if (type === 'delete') {
-                    setMailList(mailList.filter((d: any) => d.id != item.id));
+                    setMailList(mailList.filter((d: any) => d.tabChanged != item.id));
                     showMessage(totalSelected + ' Mail Permanently Deleted.');
                     searchMails(false);
                 }

@@ -9,20 +9,23 @@ import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import apis from '../../../public/apis';
 import IconRestore from '@/components/icon/icon-restore';
+import Swal from 'sweetalert2';
 
 const ComponentsAppsTrash = () => {
-    const [items, setItems] = useState([]);
+    const [items, setItems] = useState<any>([]);
     const token = localStorage.getItem('authToken');
 
-    const [page, setPage] = useState(1);
+    const [page, setPage] = useState<any>(1);
     const PAGE_SIZES = [10, 20, 30, 50, 100];
-    const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
+    const [pageSize, setPageSize] = useState<any>(PAGE_SIZES[0]);
 
-    const [initialRecords, setInitialRecords] = useState([]);
-    const [records, setRecords] = useState([]);
+    const [initialRecords, setInitialRecords] = useState<any>([]);
+    const [records, setRecords] = useState<any>([]);
     const [selectedRecords, setSelectedRecords] = useState<any[]>([]);
+    const [isModalOpen, setIsModalOpen] = useState<any>(false);
+    const [selectedImage, setSelectedImage] = useState<any>(null);
 
-    const [search, setSearch] = useState('');
+    const [search, setSearch] = useState<any>('');
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus>({
         columnAccessor: 'name',
         direction: 'asc',
@@ -43,9 +46,9 @@ const ComponentsAppsTrash = () => {
                 }
                 const data = await response.json();
                 setItems(data.data);
-                const records = items.map(item => ({
+                const records = items.map((item: any) => ({
                     ...item,
-                    _id: item._id  // Ensure each item has _id
+                    _id: item._id
                 }));
             } catch (error) {
                 console.error('Error fetching contacts:', error);
@@ -73,7 +76,7 @@ const ComponentsAppsTrash = () => {
 
     useEffect(() => {
         setInitialRecords(() => {
-            return items.filter((item) => {
+            return items.filter((item: any) => {
                 return (
                     item.name.toLowerCase().includes(search.toLowerCase()) ||
                     item.whatsapp_number.toLowerCase().includes(search.toLowerCase()) ||
@@ -131,7 +134,7 @@ const ComponentsAppsTrash = () => {
                 }
 
                 const data = await response.json();
-                const remainingItems = items.filter((user) => !ids.includes(user._id));
+                const remainingItems = items.filter((user: any) => !ids.includes(user._id));
 
                 setRecords(remainingItems);
                 setInitialRecords(remainingItems);
@@ -157,8 +160,6 @@ const ComponentsAppsTrash = () => {
             }
 
             try {
-                console.log("Clicked Restore");
-
                 const response = await fetch(apis.restoreClients, {
                     method: 'POST',
                     headers: {
@@ -172,19 +173,12 @@ const ComponentsAppsTrash = () => {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
-                console.log("Data : ", data);
-
-                console.log("Items : ", items);
-
-                const updatedItems = items.map((user) => {
+                const updatedItems = items.map((user: any) => {
                     if (ids.includes(user._id)) {
-                        return { ...user, isDeleted: false }; // Modify user to set isDeleted: false
+                        return { ...user, isDeleted: false };
                     }
                     return user;
                 });
-                console.log("updatedItems : ", updatedItems);
-
-
                 setRecords(updatedItems);
                 setInitialRecords(updatedItems);
                 setItems(updatedItems);
@@ -213,12 +207,22 @@ const ComponentsAppsTrash = () => {
 
     const handleSelectAllChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            setSelectedRecords(records);  // Select all records
+            setSelectedRecords(records);
         } else {
-            setSelectedRecords([]);  // Deselect all records
+            setSelectedRecords([]);
         }
     };
     const isAllSelected = selectedRecords.length === records.length && records.length > 0;
+
+    const openModal = (imageUrl: string) => {
+        setSelectedImage(imageUrl);
+        setIsModalOpen(true);
+    };
+
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setSelectedImage(null);
+    };
 
     return (
         <div className="panel border-white-light px-0 dark:border-[#1b2e4b]">
@@ -269,15 +273,16 @@ const ComponentsAppsTrash = () => {
                             {
                                 accessor: 'company_profile_picture',
                                 sortable: true,
-                                render: ({ _id, company_profile_picture }) => (
-                                    company_profile_picture?.url ? (
+                                render: (record: any) => {
+                                    const { company_profile_picture } = record;
+                                    return (company_profile_picture?.url ? (
                                         <div className="flex items-center font-semibold">
                                             <div className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2" onClick={() => openModal(company_profile_picture?.url)}>
                                                 <img className="h-8 w-8 rounded-full object-cover" src={company_profile_picture.url} alt="" />
                                             </div>
                                         </div>
-                                    ) : null
-                                ),
+                                    ) : null)
+                                },
                             },
                             {
                                 accessor: 'name',
@@ -306,11 +311,11 @@ const ComponentsAppsTrash = () => {
                                         return null;
                                     }
 
-                                    const options = groupName.split(',').map(option => option.trim());
+                                    const options = groupName.split(',').map((option: any) => option.trim());
 
                                     return (
                                         <select>
-                                            {options.map((option, index) => (
+                                            {options.map((option: any, index: any) => (
                                                 <option key={index} value={option}>
                                                     {option}
                                                 </option>
@@ -369,6 +374,23 @@ const ComponentsAppsTrash = () => {
                     />
                 </div>
             </div>
+
+            {isModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+                    <div className="relative">
+                        {/* Image */}
+                        <img className="max-w-full max-h-screen" src={selectedImage} alt="Large Preview" />
+
+                        {/* Close button */}
+                        <button
+                            className="absolute top-2 right-2 text-white bg-black p-2 rounded-full"
+                            onClick={closeModal}
+                        >
+                            &times;
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

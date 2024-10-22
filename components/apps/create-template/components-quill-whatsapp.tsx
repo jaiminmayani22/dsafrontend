@@ -2,13 +2,8 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import 'react-quill/dist/quill.snow.css';
 import '../../../styles/style.css';
-import Quill from 'quill';
 
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
-
-const Font = Quill.import('formats/font');
-Font.whitelist = ['serif', 'sans-serif', 'monospace', 'roboto', 'open-sans', 'lato'];
-Quill.register(Font, true);
 
 interface CustomEditorProps {
     value: string;
@@ -17,44 +12,41 @@ interface CustomEditorProps {
 
 const CustomEditor = ({ onChange, value }: CustomEditorProps) => {
     const [editorValue, setEditorValue] = useState(value || '');
-    useEffect(() => {
-        if (value !== editorValue) {
-            setEditorValue(value || '');
-        }
-    }, [value, editorValue]);
 
-    const handleEditorChange = (newValue: string) => {
-        if (newValue !== editorValue) {
-            setEditorValue(newValue);
-            if (onChange) {
-                onChange(newValue);
-            }
+    useEffect(() => {
+        if (onChange) {
+            const whatsappFormattedText = convertToWhatsAppFormat(editorValue);
+            onChange(whatsappFormattedText);
         }
-    };
+    }, [editorValue, onChange]);
 
     const modules = {
         toolbar: [
-            [{ 'font': ['serif', 'sans-serif', 'monospace', 'roboto', 'open-sans', 'lato'] }],
-            [{ 'size': ['small', false, 'large', 'huge', '12px', '14px', '16px', '18px', '24px', '36px'] }],
-            [{ 'color': [] }],
             ['bold', 'italic', 'underline', 'strike'],
             ['clean'],
         ],
     };
 
     const formats = [
-        'font',
-        'size',
-        'color',
         'bold', 'italic', 'underline', 'strike',
     ];
+
+    const convertToWhatsAppFormat = (html: string) => {
+        let text = html
+            .replace(/<strong>(.*?)<\/strong>/g, '*$1*')
+            .replace(/<em>(.*?)<\/em>/g, '_$1_')
+            .replace(/<u>(.*?)<\/u>/g, '_$1_')
+            .replace(/<strike>(.*?)<\/strike>/g, '~$1~');
+        text = text.replace(/<\/?[^>]+(>|$)/g, "");
+        return text;
+    };
 
     return (
         <div>
             <ReactQuill
                 theme="snow"
                 value={editorValue}
-                onChange={handleEditorChange}
+                onChange={setEditorValue}
                 modules={modules}
                 formats={formats}
             />

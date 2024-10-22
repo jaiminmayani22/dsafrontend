@@ -10,6 +10,7 @@ const apis = {
     //USER ADMIN
     userSignUp: `${SERVER}user/signUp`,
     userLogin: `${SERVER}user/loginUser`,
+    verifyToken: `${SERVER}user/verifyToken`,
 
     //CLIENT
     createClient: `${SERVER}user/createClient`,
@@ -43,12 +44,27 @@ const apis = {
     //TEMPLATE
     templateImageUpload: `${SERVER}template/templateImageUpload`,
     templateFormatUpload: `${SERVER}template/templateFormatUpload`,
+    templateReferenceFormatUpload: `${SERVER}template/templateReferenceFormatUpload`,
     getAllTemplateImages: `${SERVER}template/getAllTemplateImages`,
     getAllTemplateFormat: `${SERVER}template/getAllTemplateFormat`,
+    getAllReferenceTemplateFormat: `${SERVER}template/getAllReferenceTemplateFormat`,
     getAllTemplates: `${SERVER}template/getAllTemplates`,
     createTemplate: `${SERVER}template/createTemplate`,
     deleteTemplate: `${SERVER}template/deleteTemplate`,
     testAPI: `${SERVER}template/testAPI`,
+
+    //CAMPAIGN
+    createCampaignMarketing:`${SERVER}campaign/createCampaignMarketing`,
+    createCampaignUtility:`${SERVER}campaign/createCampaignUtility`,
+    sendMessage:`${SERVER}campaign/sendMessage`,
+    getAllCampaigns:`${SERVER}campaign/getAllCampaigns`,
+    campaignAudienceCount:`${SERVER}campaign/campaignAudienceCount`,
+
+    //VARIABLES
+    createVariable: `${SERVER}template/createVariable`,
+    getAllVariables: `${SERVER}template/getAllVariables`,
+    getVariableById: `${SERVER}template/getVariableById`,
+    deleteVariableById: `${SERVER}template/deleteVariableById`,
 };
 
 module.exports = apis;

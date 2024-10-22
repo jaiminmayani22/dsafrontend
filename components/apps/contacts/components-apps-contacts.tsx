@@ -1,6 +1,19 @@
 'use client';
+
+//LIBRARIES
+import { DataTableSortStatus, DataTable } from 'mantine-datatable';
+import { FaStar, FaRegStar } from 'react-icons/fa';
+import { sortBy } from 'lodash';
+import Select, { MultiValue } from 'react-select';
+import Link from 'next/link';
+import { IRootState } from '@/store';
+import { Transition, Dialog } from '@headlessui/react';
+import { useSelector } from 'react-redux';
+import React, { Fragment, useEffect, useState } from 'react';
+import Swal from 'sweetalert2';
+
+//COMPONENTS
 import IconSearch from '@/components/icon/icon-search';
-import IconUser from '@/components/icon/icon-user';
 import IconUserPlus from '@/components/icon/icon-user-plus';
 import IconSend from '@/components/icon/icon-send';
 import IconDownload from '@/components/icon/icon-download';
@@ -8,47 +21,57 @@ import IconX from '@/components/icon/icon-x';
 import Dropdown from '@/components/dropdown';
 import IconEdit from '@/components/icon/icon-edit';
 import IconEye from '@/components/icon/icon-eye';
-import IconPlus from '@/components/icon/icon-plus';
 import IconTrashLines from '@/components/icon/icon-trash-lines';
 import IconRefresh from '@/components/icon/icon-refresh';
-import { DataTableSortStatus, DataTable } from 'mantine-datatable';
-import { FaStar, FaRegStar } from 'react-icons/fa';
-import { sortBy } from 'lodash';
-import Select from 'react-select';
-
 import IconHorizontalDots from '@/components/icon/icon-horizontal-dots';
-import Link from 'next/link';
-import { IRootState } from '@/store';
 import IconCaretDown from '@/components/icon/icon-caret-down';
-import { Transition, Dialog } from '@headlessui/react';
-import { useSelector } from 'react-redux';
-import React, { Fragment, useEffect, useState } from 'react';
-import Swal from 'sweetalert2';
-import apis from '../../../public/apis';
 
+//FILES
+import apis from '../../../public/apis';
 
 const ComponentsAppsContacts = () => {
     const isRtl = useSelector((state: IRootState) => state.themeConfig.rtlClass) === 'rtl';
     const token = localStorage.getItem('authToken');
+
+    //VERIFY TOKEN
+    // useEffect(() => {
+    //     const verifyToken = async () => {
+    //         try {
+    //             const response = await fetch(apis.verifyToken, {
+    //                 method: 'POST',
+    //                 headers: {
+    //                     'Content-Type': 'application/json',
+    //                     'Authorization': `Bearer ${token}`,
+    //                 },
+    //             });
+    //             const data = await response.json();
+    //             if (!response.ok) {
+    //                 throw new Error(`HTTP error! status: ${response.status}`);
+    //             }
+    //         } catch (error) {
+    //             console.error('Error fetching contacts:', error);
+    //         }
+    //     };
+
+    //     verifyToken();
+    // }, []);
+
     const PAGE_SIZES = [10, 20, 30, 50, 100];
 
-    const [contactList, setContacts] = useState([]);
     const [addContactModal, setAddContactModal] = useState<any>(false);
     const [viewUserModal, setViewUserModal] = useState(false);
-    const [currentUser, setCurrentUser] = useState(null);
+    const [currentUser, setCurrentUser] = useState<Contact | undefined>(undefined);
     const [page, setPage] = useState(1); // Current page
     const [pageSize, setPageSize] = useState(PAGE_SIZES[0]); // Records per page
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus>({
         columnAccessor: 'name',
         direction: 'asc',
     });
-    const [groupNames, setGroupNames] = useState([]);
-    const [errors, setErrors] = useState({});
+    const [groupNames, setGroupNames] = useState<Group[]>([]);
+    const [errors, setErrors] = useState<any>({});
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedImage, setSelectedImage] = useState(null);
+    const [selectedImage, setSelectedImage] = useState<any>(null);
     const [selectedRecords, setSelectedRecords] = useState<any[]>([]);
-    const [showModal, setShowModal] = useState(false);
-    const [countryCode, setCountryCode] = useState('');
 
     const [defaultParams] = useState({
         _id: null,
@@ -80,7 +103,36 @@ const ComponentsAppsContacts = () => {
         setParams({ ...params, [id]: value });
     };
 
-    const [filteredItems, setFilteredItems] = useState<any>(contactList);
+    type Contact = {
+        _id: string;
+        name?: string;
+        email?: string;
+        groupName?: string;
+        groupId?: string;
+        city?: string;
+        district?: string;
+        address?: string;
+        mobile_number?: string;
+        company_name?: string;
+        whatsapp_number?: string;
+        profile_picture?: any;
+        company_profile_picture?: any;
+        instagramID?: string;
+        facebookID?: string;
+        isFavorite?: string;
+        addedBy?: string;
+        isNumberOnWhatsapp?: string;
+        createdAt?: any;
+        updatedAt?: any;
+    };
+
+    interface Group {
+        groupId: string;
+        name: string;
+    }
+
+    const [contactList, setContacts] = useState<Contact[]>([]);
+    const [filteredItems, setFilteredItems] = useState<Contact[]>(contactList);
     const [contactCount, setContactCount] = useState<any>();
     const [search, setSearch] = useState<any>('');
 
@@ -98,7 +150,7 @@ const ComponentsAppsContacts = () => {
                 });
                 const data = await response.json();
                 if (!response.ok) {
-                    showMessage(data.message,'error');
+                    showMessage(data.message, 'error');
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 setContacts(data.data);
@@ -114,14 +166,16 @@ const ComponentsAppsContacts = () => {
     //search contacts
     useEffect(() => {
         if (Array.isArray(contactList)) {
-            setFilteredItems(contactList.filter((item) =>
-                item.name?.toLowerCase().includes(search.toLowerCase()) ||
-                item.email?.toLowerCase().includes(search.toLowerCase()) ||
-                item.groupName?.toLowerCase().includes(search.toLowerCase()) ||
-                item.city?.toLowerCase().includes(search.toLowerCase()) ||
-                item.district?.toLowerCase().includes(search.toLowerCase()) ||
-                item.address?.toLowerCase().includes(search.toLowerCase())
-            ));
+            setFilteredItems(
+                contactList.filter((item) =>
+                    item.name?.toLowerCase().includes(search.toLowerCase()) ||
+                    item.email?.toLowerCase().includes(search.toLowerCase()) ||
+                    item.groupName?.toLowerCase().includes(search.toLowerCase()) ||
+                    item.city?.toLowerCase().includes(search.toLowerCase()) ||
+                    item.district?.toLowerCase().includes(search.toLowerCase()) ||
+                    item.address?.toLowerCase().includes(search.toLowerCase())
+                )
+            );
         }
     }, [search, contactList]);
 
@@ -169,9 +223,16 @@ const ComponentsAppsContacts = () => {
         setPage(1);
     }, [sortStatus]);
 
-    const saveUser = async (e) => {
+    interface UserParams {
+        name: string;
+        email: string;
+        whatsapp_number: string;
+        mobile_number?: string;
+    }
+
+    const saveUser = async (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
-        const newErrors = {};
+        const newErrors: { [key: string]: string } = {};
 
         if (!params.name) {
             showMessage('Name is required.', 'error');
@@ -214,12 +275,17 @@ const ComponentsAppsContacts = () => {
                     const data = await response.json();
 
                     if (response.ok) {
-                        let user = filteredItems.find((d) => d._id === params._id);
-                        Object.assign(user, params);
-                        showMessage('User has been updated successfully.');
+                        let user = filteredItems.find((d: Contact) => d._id === params._id);
+                        if (user) {
+                            Object.assign(user, params);
+                            showMessage('User has been updated successfully.');
+                        } else {
+                            showMessage('User not found.', 'error');
+                        }
                     } else {
                         showMessage(`Failed to update user: ${data.message}`, 'error');
                     }
+
                 } else {
                     const formData = new FormData();
                     for (const key in params) {
@@ -244,7 +310,11 @@ const ComponentsAppsContacts = () => {
                     }
                 }
             } catch (error) {
-                showMessage(`Error: ${error.message}`, 'error');
+                if (error instanceof Error) {
+                    showMessage(`Error: ${error.message}`, 'error');
+                } else {
+                    showMessage('An unknown error occurred.', 'error');
+                }
             }
             setAddContactModal(false);
         } else {
@@ -317,7 +387,9 @@ const ComponentsAppsContacts = () => {
         document.body.appendChild(link);
 
         link.click();
-        link.parentNode.removeChild(link);
+        if (link.parentNode) {
+            link.parentNode.removeChild(link);
+        }
     };
 
     // Function to import contacts
@@ -327,8 +399,9 @@ const ComponentsAppsContacts = () => {
         input.accept = '.csv';
 
         input.onchange = async (event) => {
-            const file = event.target.files[0];
-            if (file) {
+            const target = event.target as HTMLInputElement;
+            if (target.files && target.files.length > 0) {
+                const file = target.files[0];
                 const formData = new FormData();
                 formData.append('file', file);
 
@@ -363,46 +436,52 @@ const ComponentsAppsContacts = () => {
     const importProfileImages = () => {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = 'image/*'; // Accept only images
-        input.multiple = true;    // Allow selecting multiple files
+        input.accept = 'image/*';
+        input.multiple = true;
 
         input.onchange = async (event) => {
-            const files = event.target.files;
+            const target = event.target as HTMLInputElement;
+            const files = target.files;
+
             if (files && files.length > 0) {
                 const formData = new FormData();
                 Array.from(files).forEach((file) => {
                     formData.append('profile_picture', file);
                 });
+
                 try {
                     console.log("FormData : ", formData);
                     const response = await fetch(apis.multiProfilePics, {
                         method: 'POST',
                         headers: {
-                            // 'Content-Type': 'multipart/form-data',
                             'Authorization': `Bearer ${token}`,
                         },
                         body: formData,
                     });
+
                     if (!response.ok) {
                         showMessage('Failed to upload images', 'error');
                         throw new Error('Failed to upload images');
                     }
 
                     const result = await response.json();
-                    const updatedItems = result.results;
+                    const updatedItems: Contact[] = result.results;
 
                     const mergedItems = filteredItems.map(item => {
-                        const updatedItem = updatedItems.find(updated => updated.mobile_number === item.mobile_number);
+                        const updatedItem = updatedItems.find((updated: Contact) => updated.mobile_number === item.mobile_number);
                         return updatedItem ? updatedItem : item;
                     });
                     setFilteredItems([...mergedItems]);
                     showMessage('Images uploaded successfully');
-                } catch (error) {
-                    console.error('Error uploading images:', error);
-                    alert('Failed to upload images. Please try again.');
+                } catch (error: unknown) {
+                    if (error instanceof Error) {
+                        alert(`Failed to upload images: ${error.message}. Please try again.`);
+                    } else {
+                        alert('Failed to upload images. Please try again.');
+                    }
                 }
             } else {
-                showMessage('Images not selected, PLease try Again !', 'error');
+                showMessage('Images not selected, please try again!', 'error');
             }
         };
 
@@ -416,18 +495,18 @@ const ComponentsAppsContacts = () => {
         input.multiple = true;    // Allow selecting multiple files
 
         input.onchange = async (event) => {
-            const files = event.target.files;
+            const target = event.target as HTMLInputElement | null;
+            const files = target?.files;
+
             if (files && files.length > 0) {
                 const formData = new FormData();
                 Array.from(files).forEach((file) => {
-                    formData.append('company_profile_picture', file);
+                    formData.append('profile_picture', file);
                 });
                 try {
-                    console.log("FormData : ", formData);
                     const response = await fetch(apis.multiCompanyProfilePics, {
                         method: 'POST',
                         headers: {
-                            // 'Content-Type': 'multipart/form-data',
                             'Authorization': `Bearer ${token}`,
                         },
                         body: formData,
@@ -438,10 +517,9 @@ const ComponentsAppsContacts = () => {
                     }
 
                     const result = await response.json();
-                    const updatedItems = result.results;
-
+                    const updatedItems: Contact[] = result.results;
                     const mergedItems = filteredItems.map(item => {
-                        const updatedItem = updatedItems.find(updated => updated.mobile_number === item.mobile_number);
+                        const updatedItem = updatedItems.find((updated: Contact) => updated.mobile_number === item.mobile_number);
                         return updatedItem ? updatedItem : item;
                     });
                     setFilteredItems([...mergedItems]);
@@ -496,17 +574,22 @@ const ComponentsAppsContacts = () => {
         });
     };
 
-    const handleProfilePicture = (event) => {
-        const file = event.target.files[0];
+    const handleProfilePicture = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target?.files?.[0];
         if (file) {
             setParams({ ...params, profile_picture: file });
+        } else {
+            showMessage('No file selected. Please choose a file.', 'error');
         }
     };
 
-    const handleCompanyProfilePicture = (e) => {
-        const file = e.target.files[0];
+
+    const handleCompanyProfilePicture = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target?.files?.[0];
         if (file) {
             setParams({ ...params, company_profile_picture: file });
+        } else {
+            showMessage('No file selected. Please choose a file.', 'error');
         }
     };
 
@@ -532,13 +615,16 @@ const ComponentsAppsContacts = () => {
         }
     };
 
-    const toggleFavorite = async (_id) => {
+    const toggleFavorite = async (_id: string) => {
         const filteredItems = contactList.map((contact) =>
             contact._id === _id ? { ...contact, isFavorite: contact.isFavorite === "yes" ? "no" : "yes" } : contact
         );
         setContacts(filteredItems);
         const updatedContact = filteredItems.find(contact => contact._id === _id);
-
+        if (!updatedContact) {
+            console.error("Contact not found");
+            return;
+        }
         try {
             const response = await fetch(`${apis.updateClientById}${_id}`, {
                 method: 'PUT',
@@ -546,7 +632,7 @@ const ComponentsAppsContacts = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                 },
-                body: JSON.stringify({ isFavorite: updatedContact.isFavorite }),
+                body: JSON.stringify({ isFavorite: updatedContact?.isFavorite }),
             });
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -556,20 +642,20 @@ const ComponentsAppsContacts = () => {
         }
     };
 
-    const validateEmail = (email) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/ || "";
+    const validateEmail = (email: string): boolean => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
     };
 
-    const validateMobileNumber = (number) => {
+    const validateMobileNumber = (number: string): boolean => {
         const mobileRegex = /^\d{10}$/;
         return mobileRegex.test(number);
     };
 
     const downloadCSV = () => {
         const link = document.createElement('a');
-        link.href = '../../../public/templateCSV.csv'; // Path to your CSV file in the public folder
-        link.download = 'template.csv'; // Name of the file to be downloaded
+        link.href = '../../../public/templateCSV.csv';
+        link.download = 'template.csv';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -584,13 +670,11 @@ const ComponentsAppsContacts = () => {
         setFilteredItems(contactList);
     };
 
-    // Function to open the modal and set the selected image
-    const openModal = (imageUrl) => {
+    const openModal = (imageUrl: string) => {
         setSelectedImage(imageUrl);
         setIsModalOpen(true);
     };
 
-    // Function to close the modal
     const closeModal = () => {
         setIsModalOpen(false);
         setSelectedImage(null);
@@ -611,20 +695,26 @@ const ComponentsAppsContacts = () => {
 
     const handleSelectAllChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            setSelectedRecords(filteredItems);  // Select all records
+            setSelectedRecords(filteredItems);
         } else {
-            setSelectedRecords([]);  // Deselect all records
+            setSelectedRecords([]);
         }
     };
     const isAllSelected = selectedRecords.length === filteredItems.length && filteredItems.length > 0;
 
-    const handleGroupNameChange = (selectedOptions) => {
+    interface Option {
+        value: string;
+        label: string;
+    }
+
+    const handleGroupNameChange = (selectedOptions: MultiValue<Option>) => {
         const groupNamesString = selectedOptions.map(option => option.value).join(', ');
-        setParams(prev => ({
+        setParams((prev: any) => ({
             ...prev,
             groupId: groupNamesString,
         }));
     };
+
     const selectedGroupIds = params.groupId ? params.groupId.split(', ') : [];
 
     return (
@@ -792,7 +882,7 @@ const ComponentsAppsContacts = () => {
                         {
                             accessor: 'company_profile_picture',
                             sortable: true,
-                            render: ({ _id, company_profile_picture }) => (
+                            render: ({ company_profile_picture }) => (
                                 company_profile_picture?.url ? (
                                     <div className="flex items-center font-semibold">
                                         <div className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2" onClick={() => openModal(company_profile_picture?.url)}>
@@ -805,7 +895,7 @@ const ComponentsAppsContacts = () => {
                         {
                             accessor: 'name',
                             sortable: true,
-                            render: ({ name, profile_picture, _id }) => (
+                            render: ({ name, profile_picture }) => (
                                 profile_picture?.url ? (
                                     <div className="flex items-center font-semibold">
                                         <div className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2" onClick={() => openModal(profile_picture?.url)}>
@@ -1288,46 +1378,6 @@ const ComponentsAppsContacts = () => {
                     </div>
                 </div>
             )}
-
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-                    <div className="relative bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
-                        <h2 className="text-xl font-semibold mb-4 text-gray-800">Enter Country Code for import contacts</h2>
-                        <input
-                            type="text"
-                            value={countryCode}
-                            onChange={(e) => setCountryCode(e.target.value)}
-                            placeholder="e.g. +1 if you want to import contacts of US clients"
-                            className="w-full p-2 border border-gray-300 rounded mb-4"
-                        />
-                        <div className="flex justify-end gap-2">
-                            <button
-                                type="button"
-                                onClick={closeCountryModal}
-                                className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                onClick={skipCode}
-                                className="text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
-                            >
-                                Skip
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleImportSubmit}
-                                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-                            >
-                                Submit
-                            </button>
-
-                        </div>
-                    </div>
-                </div>
-            )}
-
         </div>
     );
 };

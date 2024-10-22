@@ -13,19 +13,18 @@ import IconCopy from '@/components/icon/icon-copy';
 
 const ComponentsAppsCreateTemplate = () => {
     const token = localStorage.getItem('authToken');
-    const [items, setItems] = useState([]);
+    const [items, setItems] = useState<any>([]);
 
-    const [page, setPage] = useState(1);
+    const [page, setPage] = useState<any>(1);
     const PAGE_SIZES = [10, 20, 30, 50, 100];
-    const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
-    const [initialRecords, setInitialRecords] = useState([]);
-    const [records, setRecords] = useState([]);
+    const [pageSize, setPageSize] = useState<any>(PAGE_SIZES[0]);
+    const [initialRecords, setInitialRecords] = useState<any>([]);
+    const [records, setRecords] = useState<any>([]);
     const [selectedRecords, setSelectedRecords] = useState<any>([]);
-    const [allTemplates, setAllTemplates] = useState(null); // State for the selected file
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedImage, setSelectedImage] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState<any>(false);
+    const [selectedImage, setSelectedImage] = useState<any>(null);
 
-    const [search, setSearch] = useState('');
+    const [search, setSearch] = useState<any>('');
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus>({
         columnAccessor: 'firstName',
         direction: 'asc',
@@ -127,7 +126,7 @@ const ComponentsAppsCreateTemplate = () => {
 
     useEffect(() => {
         setInitialRecords(() => {
-            return items.filter((item) => {
+            return items.filter((item: any) => {
                 return (
                     item.name.toLowerCase().includes(search.toLowerCase())
                     // item.email.toLowerCase().includes(search.toLowerCase()) ||
@@ -164,11 +163,9 @@ const ComponentsAppsCreateTemplate = () => {
         if (window.confirm('Are you sure want to delete the selected Template ?')) {
             try {
                 if (_id) {
-                    // API call to delete a single row
                     await deleteTemplateAPI(_id);
 
-                    // Update state after deletion
-                    const updatedItems = items.filter((user) => user._id !== _id);
+                    const updatedItems = items.filter((user: any) => user._id !== _id);
                     setRecords(updatedItems);
                     setInitialRecords(updatedItems);
                     setItems(updatedItems);
@@ -177,13 +174,8 @@ const ComponentsAppsCreateTemplate = () => {
                 } else {
                     let selectedRows = selectedRecords || [];
                     const ids = selectedRows.map((d: any) => d._id);
-
-                    // API call to delete multiple rows
-                    await Promise.all(ids.map((_id) => deleteTemplateAPI(_id)));
-
-                    const result = items.filter((d) => !ids.includes(d._id as never));
-
-                    // Update state after deletion
+                    await Promise.all(ids.map((_id: any) => deleteTemplateAPI(_id)));
+                    const result = items.filter((d: any) => !ids.includes(d._id as never));
                     setRecords(result);
                     setInitialRecords(result);
                     setItems(result);
@@ -204,9 +196,9 @@ const ComponentsAppsCreateTemplate = () => {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`, // Include auth token if required
+                'Authorization': `Bearer ${token}`,
             },
-            body: JSON.stringify({ _id }), // Send the ID to delete
+            body: JSON.stringify({ _id }),
         });
 
         if (!response.ok) {
@@ -215,7 +207,7 @@ const ComponentsAppsCreateTemplate = () => {
         }
     };
 
-    const openModal = (imageUrl) => {
+    const openModal = (imageUrl: any) => {
         setSelectedImage(imageUrl);
         setIsModalOpen(true);
     };
@@ -224,10 +216,10 @@ const ComponentsAppsCreateTemplate = () => {
         setIsModalOpen(false);
         setSelectedImage(null);
     };
-    
+
     return (
-        <div className="panel border-white-light px-0 dark:border-[#1b2e4b]">
-            <div className="invoice-table">
+        <div>
+            <div>
                 <div className="mb-4.5 flex flex-col gap-5 px-5 md:flex-row md:items-center">
                     <div className="flex items-center gap-2">
                         <button type="button" className="btn btn-danger gap-2" onClick={() => deleteRow()}>
@@ -252,15 +244,17 @@ const ComponentsAppsCreateTemplate = () => {
                             {
                                 accessor: 'template',
                                 sortable: true,
-                                render: ({ template }) => (
-                                    template?.url ? (
+                                render: (record) => {
+                                    const { template } = record as { template: any }; // Cast record to the expected type
+                                    return template?.url ? (
                                         <div className="flex items-center font-semibold">
                                             <div className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2" onClick={() => openModal(template?.url)}>
                                                 <img className="h-8 w-8 rounded-full object-cover" src={template.url} alt="" />
                                             </div>
                                         </div>
-                                    ) : null
-                                ),
+                                    ) : null;
+                                }
+
                             },
                             {
                                 accessor: 'name',
@@ -269,7 +263,8 @@ const ComponentsAppsCreateTemplate = () => {
                             {
                                 accessor: 'createdAt',
                                 sortable: true,
-                                render: ({ createdAt }) => {
+                                render: (record) => {
+                                    const { createdAt } = record as { createdAt: string };
                                     const date = new Date(createdAt);
                                     const formattedDate = date.toLocaleDateString('en-US', {
                                         year: 'numeric',
@@ -280,11 +275,9 @@ const ComponentsAppsCreateTemplate = () => {
                                         hour: '2-digit',
                                         minute: '2-digit',
                                     });
-
                                     return (
                                         <div>
-                                            <div className="text">{formattedDate}</div>
-                                            <div className="text-sm text-gray-500">{formattedTime}</div> {/* Time in smaller, blurred text */}
+                                            {formattedDate} at {formattedTime}
                                         </div>
                                     );
                                 },
@@ -292,38 +285,45 @@ const ComponentsAppsCreateTemplate = () => {
                             {
                                 accessor: 'isApproved',
                                 sortable: true,
-                                render: ({ isApproved }) => (
-                                    <button
-                                        className={`btn ${isApproved === 'yes'
-                                            ? 'btn-success'
-                                            : 'btn-danger'
-                                            }`}
-                                    >
-                                        {isApproved === 'yes' ? 'Approved' : 'Not Approved'}
-                                    </button>
-                                ),
+                                render: (record) => {
+                                    const { isApproved } = record as { isApproved: string }; // Cast record to the expected type
+                                    return (
+                                        <button
+                                            className={`btn ${isApproved === 'yes' ? 'btn-success' : 'btn-danger'}`}
+                                        >
+                                            {isApproved === 'yes' ? 'Approved' : 'Not Approved'}
+                                        </button>
+                                    );
+                                },
                             },
                             {
                                 accessor: 'action',
                                 title: 'Actions',
                                 sortable: false,
                                 textAlignment: 'center',
-                                render: ({ _id }) => (
-                                    <div className="mx-auto flex w-max items-center gap-4">
-                                        <Link href="/apps/create-template/create-new" className="flex hover:text-info">
-                                            <IconCopy className="h-4.5 w-4.5" />
-                                        </Link>
-                                        <Link href="/apps/create-template/create-new" className="flex hover:text-info">
-                                            <IconEdit className="h-4.5 w-4.5" />
-                                        </Link>
-                                        <Link href="/apps/invoice/preview" className="flex hover:text-primary">
-                                            <IconEye />
-                                        </Link>
-                                        <button type="button" className="flex hover:text-danger" onClick={(e) => deleteRow(_id)}>
-                                            <IconTrashLines />
-                                        </button>
-                                    </div>
-                                ),
+                                render: (record) => {
+                                    const { _id } = record as { _id: string }; 
+                                    return (
+                                        <div className="mx-auto flex w-max items-center gap-4">
+                                            <Link href="/apps/create-template/create-new" className="flex hover:text-info">
+                                                <IconCopy className="h-4.5 w-4.5" />
+                                            </Link>
+                                            <Link href="/apps/create-template/create-new" className="flex hover:text-info">
+                                                <IconEdit className="h-4.5 w-4.5" />
+                                            </Link>
+                                            <Link href="/apps/invoice/preview" className="flex hover:text-primary">
+                                                <IconEye />
+                                            </Link>
+                                            <button
+                                                type="button"
+                                                className="flex hover:text-danger"
+                                                onClick={() => deleteRow(_id)}
+                                            >
+                                                <IconTrashLines />
+                                            </button>
+                                        </div>
+                                    );
+                                },
                             },
                         ]}
                         highlightOnHover

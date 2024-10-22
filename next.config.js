@@ -7,7 +7,9 @@ const nextConfig = {
     },
     env:{
         NEXT_PUBLIC_DSA_LOCAL: process.env.NEXT_PUBLIC_DSA_LOCAL
-    }
+    },
+    trailingSlash: true,
+    output: 'export'
 };
 
 module.exports = nextConfig;
