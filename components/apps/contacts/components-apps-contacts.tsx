@@ -821,12 +821,12 @@ const ComponentsAppsContacts = () => {
                                 <li>
                                     <button type="button" onClick={downloadCSV}>CSV Template</button>
                                 </li>
-                                <li>
+                                {/* <li>
                                     <button type="button" onClick={importContacts}>Utility Template</button>
                                 </li>
                                 <li>
                                     <button type="button" onClick={importContacts}>Import Profile Images</button>
-                                </li>
+                                </li> */}
                             </ul>
                         </Dropdown>
                     </div>

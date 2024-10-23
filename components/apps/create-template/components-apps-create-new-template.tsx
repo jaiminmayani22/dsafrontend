@@ -267,9 +267,9 @@ const ComponentsAppsCreateNewTemplate = () => {
                 ctx.drawImage(layer.content, layer.x, layer.y, layer.width, layer.height);
             } else if (layer.type === 'text') {
                 const quillClassMapping: { [key: string]: string } = {
-                    'ql-size-small': 'small',
-                    'ql-size-large': 'large',
-                    'ql-size-huge': 'huge',
+                    'ql-size-small': '18px',
+                    'ql-size-large': '38px',
+                    'ql-size-huge': '66px',
                     'ql-font-serif': 'serif',
                     'ql-font-monospace': 'monospace',
                     'ql-font-sans-serif': 'sans-serif',
