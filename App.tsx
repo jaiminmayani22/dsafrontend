@@ -6,6 +6,8 @@ import { toggleRTL, toggleTheme, toggleMenu, toggleLayout, toggleAnimation, togg
 import Loading from '@/components/layouts/loading';
 import { getTranslation } from '@/i18n';
 
+export const dynamic = "force-dynamic";
+
 function App({ children }: PropsWithChildren) {
     const themeConfig = useSelector((state: IRootState) => state.themeConfig);
     const dispatch = useDispatch();
@@ -20,17 +22,16 @@ function App({ children }: PropsWithChildren) {
         dispatch(toggleAnimation(localStorage.getItem('animation') || themeConfig.animation));
         dispatch(toggleNavbar(localStorage.getItem('navbar') || themeConfig.navbar));
         dispatch(toggleSemidark(localStorage.getItem('semidark') || themeConfig.semidark));
-        // locale
+
+        // Initialize locale
         initLocale(themeConfig.locale);
 
         setIsLoading(false);
-    }, [dispatch, initLocale, themeConfig.theme, themeConfig.menu, themeConfig.layout, themeConfig.rtlClass, themeConfig.animation, themeConfig.navbar, themeConfig.locale, themeConfig.semidark]);
+    }, [dispatch, initLocale, themeConfig]);
 
     return (
         <div
-            className={`${(themeConfig.sidebar && 'toggle-sidebar') || ''} ${themeConfig.menu} ${themeConfig.layout} ${
-                themeConfig.rtlClass
-            } main-section relative font-nunito text-sm font-normal antialiased`}
+            className={`${(themeConfig.sidebar && 'toggle-sidebar') || ''} ${themeConfig.menu} ${themeConfig.layout} ${themeConfig.rtlClass} main-section relative font-nunito text-sm font-normal antialiased`}
         >
             {isLoading ? <Loading /> : children}
         </div>

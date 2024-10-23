@@ -16,26 +16,23 @@ import ru from './public/locales/ru.json';
 import sv from './public/locales/sv.json';
 import tr from './public/locales/tr.json';
 import zh from './public/locales/zh.json';
+
 const langObj: any = { en, ae, da, de, el, es, fr, hu, it, ja, pl, pt, ru, sv, tr, zh };
 
 const getLang = () => {
-    let lang = null;
     if (typeof window !== 'undefined') {
         const cookies = new cookieObj.default(null, { path: '/' });
-        lang = cookies.get('i18nextLng');
-    } else {
-        const cookies = cookieObj.cookies();
-        lang = cookies.get('i18nextLng')?.value;
+        return cookies.get('i18nextLng');
     }
-    return lang;
+    return 'en';
 };
 
 export const getTranslation = () => {
     const lang = getLang();
-    const data: any = langObj[lang || 'en'];
+    const data: any = langObj[lang] || langObj['en'];
 
     const t = (key: string) => {
-        return data[key] ? data[key] : key;
+        return data[key] || key;
     };
 
     const initLocale = (themeLocale: string) => {

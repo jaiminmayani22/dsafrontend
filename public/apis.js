@@ -1,10 +1,11 @@
 /** @type {import('next').NextConfig} */
 
-const SERVER = process.env.NEXT_PUBLIC_DSA_LOCAL;
+const SERVER = "http://localhost:8080/";
+// const SERVER = "http://172.20.10.5:8080/";
 
 if (!SERVER) {
-    throw new Error('NEXT_PUBLIC_DSA_LOCAL is not defined');
-  }
+    throw new Error('Server is not defined');
+}
 
 const apis = {
     //USER ADMIN
@@ -54,11 +55,11 @@ const apis = {
     testAPI: `${SERVER}template/testAPI`,
 
     //CAMPAIGN
-    createCampaignMarketing:`${SERVER}campaign/createCampaignMarketing`,
-    createCampaignUtility:`${SERVER}campaign/createCampaignUtility`,
-    sendMessage:`${SERVER}campaign/sendMessage`,
-    getAllCampaigns:`${SERVER}campaign/getAllCampaigns`,
-    campaignAudienceCount:`${SERVER}campaign/campaignAudienceCount`,
+    createCampaignMarketing: `${SERVER}campaign/createCampaignMarketing`,
+    createCampaignUtility: `${SERVER}campaign/createCampaignUtility`,
+    sendMessage: `${SERVER}campaign/sendMessage`,
+    getAllCampaigns: `${SERVER}campaign/getAllCampaigns`,
+    campaignAudienceCount: `${SERVER}campaign/campaignAudienceCount`,
 
     //VARIABLES
     createVariable: `${SERVER}template/createVariable`,
