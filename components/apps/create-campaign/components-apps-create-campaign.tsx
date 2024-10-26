@@ -129,10 +129,7 @@ const ComponentsAppsCreateCampaign = () => {
         if (window.confirm('Are you sure want to delete the selected Template ?')) {
             try {
                 if (_id) {
-                    // API call to delete a single row
                     await deleteTemplateAPI(_id);
-
-                    // Update state after deletion
                     const updatedItems = items.filter((user: any) => user._id !== _id);
                     setRecords(updatedItems);
                     setInitialRecords(updatedItems);
@@ -142,13 +139,9 @@ const ComponentsAppsCreateCampaign = () => {
                 } else {
                     let selectedRows = selectedRecords || [];
                     const ids = selectedRows.map((d: any) => d._id);
-
-                    // API call to delete multiple rows
                     await Promise.all(ids.map((_id: any) => deleteTemplateAPI(_id)));
-
                     const result = items.filter((d: any) => !ids.includes(d._id as never));
 
-                    // Update state after deletion
                     setRecords(result);
                     setInitialRecords(result);
                     setItems(result);
@@ -165,13 +158,13 @@ const ComponentsAppsCreateCampaign = () => {
     };
 
     const deleteTemplateAPI = async (_id: any) => {
-        const response = await fetch(apis.deleteTemplate, {
+        const response = await fetch(apis.deleteCampaign, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
             },
-            body: JSON.stringify({ _id }),
+            body: JSON.stringify({ id: _id }),
         });
 
         if (!response.ok) {

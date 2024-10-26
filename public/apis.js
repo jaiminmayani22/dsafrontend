@@ -59,6 +59,7 @@ const apis = {
     createCampaignUtility: `${SERVER}campaign/createCampaignUtility`,
     sendMessage: `${SERVER}campaign/sendMessage`,
     getAllCampaigns: `${SERVER}campaign/getAllCampaigns`,
+    deleteCampaign: `${SERVER}campaign/deleteCampaign`,
     campaignAudienceCount: `${SERVER}campaign/campaignAudienceCount`,
 
     //VARIABLES
