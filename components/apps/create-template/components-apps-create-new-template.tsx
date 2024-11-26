@@ -6,6 +6,7 @@ import AnimateHeight from 'react-animate-height';
 import Head from 'next/head';
 import Swal from 'sweetalert2';
 import { v4 as uuidv4 } from 'uuid';
+import { useRouter } from 'next/navigation'
 
 //COMPONENTS
 import IconSave from '@/components/icon/icon-save';
@@ -22,8 +23,12 @@ import CustomEditor from './components-quill';
 import apis from '../../../public/apis';
 
 const ComponentsAppsCreateNewTemplate = () => {
+    const router = useRouter();
+
     const token = localStorage.getItem('authToken');
-    const [activeDropdown, setActiveDropdown] = useState<string>('');
+    if (!token) {
+        router.push('/auth/boxed-signin');
+    } const [activeDropdown, setActiveDropdown] = useState<string>('');
 
     const [height, setHeight] = useState<any>(1080);
     const [width, setWidth] = useState<any>(1080);
@@ -41,7 +46,6 @@ const ComponentsAppsCreateNewTemplate = () => {
     const [variableKey, setVariableKey] = useState<any>('');
     const [templateRefName, setTemplateRefName] = useState<any>('');
     const [isDownloadModalOpen, setIsDownloadModalOpen] = useState<any>(false);
-    const [variableAddModel, setVariableAddModel] = useState<any>(false);
     const [isRefModalOpen, setIsRefModalOpen] = useState<any>(false);
     const [editorText, setEditorText] = useState<any>('');
 
@@ -54,16 +58,20 @@ const ComponentsAppsCreateNewTemplate = () => {
     const [currentHistoryIndex, setCurrentHistoryIndex] = useState<any>(-1);
     const [activeLayerIndex, setActiveLayerIndex] = useState<any>(null);
     const positions = [
-        `Bottom Left (x50-y${height - 50})`,
+        `Bottom Left (x150-y${height - 70})`,
+        `Bottom-Middle-Up (x${width / 2}-y${height - 80})`,
+        `Bottom Middle (x${width / 2}-y${height - 50})`,
+        `Bottom-Middle-Down (x${width / 2}-y${height - 20})`,
+        // `Bottom Right (x${width - 140}-y${height - 50})`,
+        `Bottom-Right-Up (x${width - 140}-y${height - 80})`,
         `Bottom Right (x${width - 140}-y${height - 50})`,
-        `Bottom Middle (x${width / 2 - 20}-y${height - 50})`,
-        `Bottom-Middle-Up (x${width / 2 - 20}-y${height - 80})`,
-        `Bottom-Middle-Down (x${width / 2 - 20}-y${height - 40})`
+        `Bottom-Right-Down (x${width - 140}-y${height - 20})`,
     ];
     const [selectedPosition, setSelectedPosition] = useState<any>('');
     const [selectedVariable, setSelectedVariable] = useState<any>('');
     const [customX, setCustomX] = useState<any>(null);
     const [customY, setCustomY] = useState<any>(null);
+    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
     // Effect to set the canvas context and initialize background
     useEffect(() => {
@@ -109,6 +117,11 @@ const ComponentsAppsCreateNewTemplate = () => {
                     },
                 });
                 const data = await response.json();
+                if (response.status === 401 && data.message === "Token expired! Please login again") {
+                    showMessage(data.message, 'error');
+                    router.push('/auth/boxed-signin');
+                    throw new Error('Token expired');
+                }
                 if (!response.ok) {
                     showMessage(data.message, 'error');
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -163,7 +176,6 @@ const ComponentsAppsCreateNewTemplate = () => {
                     showMessage(data.message, 'error');
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                console.log("data : ", data);
                 setAllVariables(data);
             } catch (error) {
                 console.error('Error fetching contacts:', error);
@@ -176,14 +188,12 @@ const ComponentsAppsCreateNewTemplate = () => {
     const drawGrid = (ctx: CanvasRenderingContext2D, width: number, height: number, gridSize: number) => {
         ctx.strokeStyle = '#BFBFBF';
         ctx.lineWidth = 0.5;
-
         for (let x = 0; x <= width; x += gridSize) {
             ctx.beginPath();
             ctx.moveTo(x, 0);
             ctx.lineTo(x, height);
             ctx.stroke();
         }
-
         for (let y = 0; y <= height; y += gridSize) {
             ctx.beginPath();
             ctx.moveTo(0, y);
@@ -194,74 +204,70 @@ const ComponentsAppsCreateNewTemplate = () => {
 
     const handleMouseDown = (e: any) => {
         const canvas = canvasRef.current;
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        if (canvas) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
 
-        const ctx = canvas.getContext('2d');
+            const ctx = canvas.getContext('2d');
+            const layerIndex = layers.findIndex((layer: any) => {
+                const { x: layerX, y: layerY, type } = layer;
+                if (type === 'svg') {
+                    return (
+                        x >= layerX &&
+                        x <= layerX + layer.content.width &&
+                        y >= layerY &&
+                        y <= layerY + layer.content.height
+                    );
+                } else if (type === 'text') {
+                    ctx.font = `${layer.size || layer.fontSize}px ${layer.fontFamily || 'Arial'}`;
+                    const textWidth = ctx.measureText(layer.content).width;
+                    return (
+                        x >= layerX &&
+                        x <= layerX + textWidth &&
+                        y >= layerY - (layer.size || layer.fontSize) &&
+                        y <= layerY
+                    );
+                }
+                return false;
+            });
 
-        const layerIndex = layers.findIndex((layer: any) => {
-            const { x: layerX, y: layerY, type } = layer;
-
-            if (type === 'svg') {
-                return (
-                    x >= layerX &&
-                    x <= layerX + layer.content.width &&
-                    y >= layerY &&
-                    y <= layerY + layer.content.height
-                );
-            } else if (type === 'text') {
-                ctx.font = `${layer.size || layer.fontSize}px ${layer.fontFamily || 'Arial'}`;
-                const textWidth = ctx.measureText(layer.content).width;
-                return (
-                    x >= layerX &&
-                    x <= layerX + textWidth &&
-                    y >= layerY - (layer.size || layer.fontSize) &&
-                    y <= layerY
-                );
+            if (layerIndex >= 0) {
+                setActiveLayerIndex(layerIndex);
+                setIsDragging(true);
             }
-            return false;
-        });
-
-        if (layerIndex >= 0) {
-            setActiveLayerIndex(layerIndex);
-            setIsDragging(true); // Start dragging
         }
     };
 
     const handleMouseMove = (e: any) => {
-        if (activeLayerIndex === null || !isDragging) return; // No active layer or not dragging
-
+        if (activeLayerIndex === null || !isDragging) return;
         const canvas = canvasRef.current;
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-
-        setLayers((prevLayers: any) => {
-            const updatedLayers = [...prevLayers];
-            const activeLayer = updatedLayers[activeLayerIndex];
-
-            activeLayer.x = x;
-            activeLayer.y = y;
-            return updatedLayers;
-        });
-
-        drawCanvas(context, canvas); // Redraw canvas with updated layer position
+        if (canvas) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            setLayers((prevLayers: any) => {
+                const updatedLayers = [...prevLayers];
+                const activeLayer = updatedLayers[activeLayerIndex];
+                activeLayer.x = x;
+                activeLayer.y = y;
+                return updatedLayers;
+            });
+            drawCanvas(context, canvas);
+        }
     };
 
     const handleMouseUp = () => {
-        setIsDragging(false); // Stop dragging
-        setActiveLayerIndex(null); // Clear active layer on mouse up
+        setIsDragging(false);
+        setActiveLayerIndex(null);
         setSelectedLayer(null);
     };
 
     const drawCanvas = (ctx: any, canvas: any) => {
         if (!ctx || !canvas) return;
-
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const gridSize = 20;
         drawGrid(ctx, canvas.width, canvas.height, gridSize);
-
         layers.forEach((layer: any) => {
             if (layer.type === 'image') {
                 ctx.drawImage(layer.content, layer.x, layer.y, layer.width, layer.height);
@@ -281,20 +287,17 @@ const ComponentsAppsCreateNewTemplate = () => {
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = layer.content;
                 const textElements = tempDiv.querySelectorAll('p, span, em, strong, u');
-
                 const extractTextContent = (element: any) => {
                     if (element.children.length === 0) {
                         return element.innerText || element.textContent;
                     }
                     return '';
                 };
-
                 let currentY = layer.y;
                 textElements.forEach((element) => {
                     let textElement = element as HTMLElement;
                     const text = extractTextContent(textElement);
                     if (!text.trim()) return;
-
                     let fontSize = '24px';
                     let fontFamily = 'Times New Roman';
                     let fontWeight = 'normal';
@@ -322,7 +325,6 @@ const ComponentsAppsCreateNewTemplate = () => {
                             fillColor = colorMatch[1];
                         }
                     }
-
                     if (textElement.tagName === 'STRONG' || textElement.style?.fontWeight === 'bold') {
                         fontWeight = 'bold';
                     }
@@ -332,7 +334,6 @@ const ComponentsAppsCreateNewTemplate = () => {
                     if (textElement.tagName === 'U' || textElement.style?.textDecoration === 'underline') {
                         textDecoration = 'underline';
                     }
-
                     if (textDecoration === 'underline') {
                         ctx.beginPath();
                         ctx.moveTo(layer.x, currentY + parseFloat(fontSize));
@@ -341,9 +342,9 @@ const ComponentsAppsCreateNewTemplate = () => {
                         ctx.lineWidth = 1;
                         ctx.stroke();
                     }
-
                     ctx.font = `${fontWeight} ${fontStyle} ${fontSize} ${fontFamily}`;
                     ctx.fillStyle = fillColor;
+                    ctx.textAlign = 'center';
                     ctx.textBaseline = 'center';
                     ctx.fillText(text, layer.x, currentY);
                     currentY += parseFloat(fontSize);
@@ -368,6 +369,9 @@ const ComponentsAppsCreateNewTemplate = () => {
                         );
                     }
                 });
+            } if (layer.type === 'rect') {
+                ctx.fillStyle = layer.fillColor;
+                ctx.fillRect(layer.x, layer.y, layer.width, layer.height);
             }
         });
     };
@@ -387,7 +391,6 @@ const ComponentsAppsCreateNewTemplate = () => {
         });
     };
 
-    // Add an image layer
     const addImageLayer = (imageSrc: any) => {
         const img = new Image();
         img.src = imageSrc;
@@ -396,7 +399,6 @@ const ComponentsAppsCreateNewTemplate = () => {
         };
     };
 
-    // Add a text layer, change dimensions for different text
     const handlePositionChange = (e: any) => {
         const selectedValue = e.target?.value;
         setSelectedPosition(selectedValue);
@@ -419,9 +421,34 @@ const ComponentsAppsCreateNewTemplate = () => {
     const calculatePosition = (position: any) => {
         let x, y;
         switch (position) {
-            case `Bottom Left (x50-y${height - 50})`:
-                x = 50;
+            case `Bottom Left (x150-y${height - 70})`:
+                x = 150;
+                y = height - 70;
+                break;
+
+            case `Bottom-Middle-Up (x${width / 2}-y${height - 80})`:
+                x = width / 2;
+                y = height - 80;
+                break;
+
+            case `Bottom Middle (x${width / 2}-y${height - 50})`:
+                x = width / 2;
                 y = height - 50;
+                break;
+
+            case `Bottom-Middle-Down (x${width / 2}-y${height - 20})`:
+                x = width / 2;
+                y = height - 20;
+                break;
+
+            // case `Bottom Right (x${width - 140}-y${height - 50})`:
+            //     x = width - 140;
+            //     y = height - 50;
+            //     break;
+
+            case `Bottom-Right-Up (x${width - 140}-y${height - 80})`:
+                x = width - 140;
+                y = height - 80;
                 break;
 
             case `Bottom Right (x${width - 140}-y${height - 50})`:
@@ -429,19 +456,9 @@ const ComponentsAppsCreateNewTemplate = () => {
                 y = height - 50;
                 break;
 
-            case `Bottom Middle (x${width / 2 - 20}-y${height - 50})`:
-                x = width / 2 - 20;
-                y = height - 50;
-                break;
-
-            case `Bottom-Middle-Up (x${width / 2 - 20}-y${height - 80})`:
-                x = width / 2 - 20;
-                y = height - 80;
-                break;
-
-            case `Bottom-Middle-Down (x${width / 2 - 20}-y${height - 40})`:
-                x = width / 2 - 20;
-                y = height - 40;
+            case `Bottom-Right-Down (x${width - 140}-y${height - 20})`:
+                x = width - 140;
+                y = height - 20;
                 break;
 
             default:
@@ -473,7 +490,6 @@ const ComponentsAppsCreateNewTemplate = () => {
         setActiveDropdown((prev) => (prev === dropdownName ? '' : dropdownName));
     };
 
-    // Handle user input for width and height
     const handleHeightChange = (e: any) => {
         const value = e.target.value;
         setHeight(parseInt(value, 10));
@@ -484,13 +500,11 @@ const ComponentsAppsCreateNewTemplate = () => {
         setWidth(parseInt(value, 10));
     };
 
-    // Handle background color change
     const handleBackgroundColorChange = (e: any) => {
         const value = e.target.value;
         setBackgroundColor(value);
     };
 
-    // Handle preset changes (predefined dimensions)
     const handlePresetChange = (presetWidth: any, presetHeight: any) => {
         setWidth(presetWidth);
         setHeight(presetHeight);
@@ -568,7 +582,6 @@ const ComponentsAppsCreateNewTemplate = () => {
         e.dataTransfer.setData('text/plain', item?.templateImages?.url);
     };
 
-    //DROP IMAGE
     const handleDrop = (e: any) => {
         e.preventDefault();
 
@@ -595,11 +608,10 @@ const ComponentsAppsCreateNewTemplate = () => {
                 content: img,
                 x: x,
                 y: y,
-                width: img.width || 64,  // Use a default width if not available
-                height: img.height || 64, // Use a default height if not available
+                width: img.width || 64,
+                height: img.height || 64,
             };
 
-            // Update layers and history for SVG
             setLayers((prevLayers: any) => {
                 const newLayers = [...prevLayers, newLayer];
                 setHistory((prevHistory: any) => {
@@ -715,7 +727,6 @@ const ComponentsAppsCreateNewTemplate = () => {
 
             const newTemplate = await response.json();
             if (response.ok) {
-                console.log("newTemplate:", newTemplate);
                 setAllTemplates((prevTemplates: any) => [...prevTemplates, newTemplate.data]);
                 showMessage('Template uploaded successfully!');
             } else {
@@ -724,37 +735,6 @@ const ComponentsAppsCreateNewTemplate = () => {
             closeDownloadModal();
         } catch (error) {
             showMessage('Error uploading template', 'error');
-        }
-    };
-
-    const saveVariable = async () => {
-        if (!variableKey) {
-            alert('Variable name is required to proceed.');
-            return;
-        }
-        const data = {
-            key: variableKey,
-        };
-        try {
-            const response = await fetch(apis.createVariable, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify(data),
-            });
-
-            const responseData = await response.json();
-            if (response.ok) {
-                setAllVariables([...variables, responseData.data]);
-                showMessage(responseData.message);
-            } else {
-                showMessage(responseData.message, 'error');
-            }
-            closeVariableAddModel();
-        } catch (error) {
-            showMessage('Error occured while Adding Variable', 'error');
         }
     };
 
@@ -771,7 +751,6 @@ const ComponentsAppsCreateNewTemplate = () => {
         formData.append('templateFormat', blob, `${templateRefName}.svg`);
         formData.append('height', height);
         formData.append('width', width);
-        console.log("layers : ", layers);
 
         const layerData = layers.map((layer: any) => ({
             ...layer
@@ -790,10 +769,12 @@ const ComponentsAppsCreateNewTemplate = () => {
             const newTemplate = await response.json();
             if (response.ok) {
                 showMessage(newTemplate.message);
+                closeDownloadModal();
+                router.push('/apps/create-template');
             } else {
                 showMessage(newTemplate.message, 'error');
+                closeDownloadModal();
             }
-            closeDownloadModal();
         } catch (error) {
             showMessage('Error uploading template', 'error');
         }
@@ -801,9 +782,7 @@ const ComponentsAppsCreateNewTemplate = () => {
 
     const openDownloadModal = () => setIsDownloadModalOpen(true);
     const openRefModal = () => setIsRefModalOpen(true);
-    const openVariableAdd = () => setVariableAddModel(true);
     const closeDownloadModal = () => setIsDownloadModalOpen(false);
-    const closeVariableAddModel = () => setVariableAddModel(false);
     const closeRefModal = () => setIsRefModalOpen(false);
 
     const handleDeleteLayer = (layerToDelete: any) => {
@@ -842,12 +821,34 @@ const ComponentsAppsCreateNewTemplate = () => {
         setEditorText(selectedValue);
     };
 
+    const addRect = (
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+        fillColor: string
+    ) => {
+        setLayers((prev: any) => [
+            ...prev,
+            {
+                id: Date.now().toString(),
+                type: 'rect',
+                x,
+                y,
+                width,
+                height,
+                fillColor,
+                isDrawn: true,
+                layerName: 'Shape Layer'
+            }
+        ]);
+    };
+
     return (
         <div className="main-container">
             <div className="relative flex h-full gap-3 sm:h-[calc(100vh_-_150px)]">
 
                 {/* Left Panel with Dropdown */}
-                {/* <div className="panel mb-3 w-[240px] "> Explicit width control sm:w-[180px] lg:w-[200px] */}
                 <div className="panel mb-3 w-[260px] ">
                     <div className="grid grid-cols-1 gap-4">
 
@@ -887,16 +888,6 @@ const ComponentsAppsCreateNewTemplate = () => {
                                                 placeholder="px"
                                             />
                                         </div>
-                                        <div className="mb-5">
-                                            <label className="block mb-2">Background Color:</label> {/* Added margin to separate the label */}
-                                            <input
-                                                type="color"
-                                                value={backgroundColor}
-                                                onChange={handleBackgroundColorChange}
-                                                className="form-input h-10 p-0.5 border border-gray-300 rounded-md"
-                                            />
-                                        </div>
-
 
                                         {/* Preset Dimension Buttons */}
                                         <div className="mb-5">
@@ -1086,47 +1077,69 @@ const ComponentsAppsCreateNewTemplate = () => {
                                 <div>
                                     <AnimateHeight duration={300} height={activeDropdown === 'typography' ? 'auto' : 0}>
                                         <br />
-                                        <div className="items-center overflow-auto" style={{ maxHeight: '400px' }}>
+                                        <div
+                                            className="items-center overflow-auto"
+                                            style={{
+                                                maxHeight: '400px',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                padding: '1rem',
+                                            }}
+                                        >
                                             <Head>
-                                                <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Montserrat:wght@400;500;700&family=Open+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+                                                <link
+                                                    href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Montserrat:wght@400;500;700&family=Open+Sans:wght@400;500;700&display=swap"
+                                                    rel="stylesheet"
+                                                />
                                             </Head>
 
                                             {/* Custom Editor */}
-                                            <button type='button' className='btn btn-outline-success' onClick={openVariableAdd}>Add Variable</button>
-                                            <br />
                                             <select
                                                 className="form-select"
                                                 onChange={handleVariableChange}
                                                 value={selectedVariable}
+                                                style={{ width: '100%', maxWidth: '300px', marginBottom: '1rem' }}
                                             >
                                                 <option value="">Select Variable</option>
-                                                {Array.isArray(variables) && variables.map((variable) => (
-                                                    <option key={variable.name} value={variable.name}>
-                                                        {variable.name}
-                                                    </option>
-                                                ))}
+                                                {Array.isArray(variables) &&
+                                                    variables.map((variable) => (
+                                                        <option key={variable.name} value={variable.name}>
+                                                            {variable.name}
+                                                        </option>
+                                                    ))}
                                             </select>
-                                            <br />
-                                            <br />
                                             <CustomEditor
-                                                onChange={(text: any) => setEditorText(text)}
+                                                onChange={(text) => setEditorText(text)}
                                                 value={editorText}
                                             />
                                             <br />
 
-                                            <select className="form-select" onChange={handlePositionChange} value={selectedPosition}>
+                                            <select
+                                                className="form-select"
+                                                onChange={handlePositionChange}
+                                                value={selectedPosition}
+                                                style={{ width: '100%', maxWidth: '300px', marginBottom: '1rem' }}
+                                            >
                                                 <option value="">Select Position</option>
-                                                {positions.map(position => (
+                                                {positions.map((position) => (
                                                     <option key={position} value={position}>
                                                         {position}
                                                     </option>
                                                 ))}
                                             </select>
-                                            <br />
-
-                                            <div className="grid">
-                                                <div>
-                                                    <label>X (pixels):</label>
+                                            <div
+                                                className="grid"
+                                                style={{
+                                                    display: 'flex',
+                                                    flexWrap: 'wrap',
+                                                    gap: '1rem',
+                                                    maxWidth: '300px',
+                                                    width: '100%',
+                                                }}
+                                            >
+                                                <div style={{ flex: '1 1 45%' }}>
+                                                    <label style={{ fontWeight: 500 }}>X (pixels) :</label>
                                                     <input
                                                         type="number"
                                                         value={customX !== null ? customX : calculatePosition(selectedPosition).x}
@@ -1135,8 +1148,8 @@ const ComponentsAppsCreateNewTemplate = () => {
                                                         placeholder="Custom X"
                                                     />
                                                 </div>
-                                                <div>
-                                                    <label>Y (pixels):</label>
+                                                <div style={{ flex: '1 1 45%' }}>
+                                                    <label style={{ fontWeight: 500 }}>Y (pixels) :</label>
                                                     <input
                                                         type="number"
                                                         value={customY !== null ? customY : calculatePosition(selectedPosition).y}
@@ -1146,7 +1159,12 @@ const ComponentsAppsCreateNewTemplate = () => {
                                                     />
                                                 </div>
                                             </div>
-                                            <button type="button" className="btn btn-success" onClick={addTextLayer}>
+                                            <button
+                                                type="button"
+                                                className="btn btn-success"
+                                                onClick={addTextLayer}
+                                                style={{ padding: '0.5rem 1rem', fontWeight: 500 }}
+                                            >
                                                 Add Text
                                             </button>
                                         </div>
@@ -1165,26 +1183,32 @@ const ComponentsAppsCreateNewTemplate = () => {
                             <IconTrashLines className="shrink-0 ltr:mr-2 rtl:ml-2" />
                             Clear
                         </button>
-                        <button type="button" className="btn btn-outline-warning" onClick={handleUndo}>
+                        {/* <button type="button" className="btn btn-outline-warning" onClick={handleUndo}>
                             <IconArrowBackward className="shrink-0 ltr:mr-2 rtl:ml-2" />
                             Undo
                         </button>
                         <button type="button" className="btn btn-outline-success" onClick={handleRedo}>
                             <IconArrowForward className="shrink-0 ltr:mr-2 rtl:ml-2" />
                             Redo
-                        </button>
+                        </button> */}
                     </div>
 
                     {/* Canvas section */}
                     <div className="flex items-center justify-center w-full h-auto">
-                        <div className="relative w-[450px] max-w-full h-[450px]">
+                        <div
+                            className="relative max-w-full"
+                            style={{
+                                width: `${(450 / Math.max(width, height)) * width}px`,
+                                height: `${(450 / Math.max(width, height)) * height}px`,
+                            }}
+                        >
                             <canvas
                                 ref={canvasRef}
                                 width={width}
                                 height={height}
                                 className="border border-gray-400"
                                 onDrop={(e) => {
-                                    handleDrop(e); // Handle images drop
+                                    handleDrop(e);
                                 }}
                                 onDragOver={(e) => e.preventDefault()}
                                 onMouseDown={handleMouseDown}
@@ -1262,38 +1286,6 @@ const ComponentsAppsCreateNewTemplate = () => {
                                     type="button"
                                     className="btn bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
                                     onClick={handleSaveAndSend}
-                                >
-                                    Save
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* SAVE VARIABLE */}
-                {variableAddModel && (
-                    <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
-                        <div className="bg-white p-6 rounded-lg shadow-lg">
-                            <h2 className="text-xl font-semibold mb-4">Enter Variable Name</h2>
-                            <input
-                                type="text"
-                                className="form-input w-full border border-gray-300 p-2 rounded-md mb-4"
-                                value={variableKey}
-                                onChange={(e) => setVariableKey(e.target.value)}
-                                placeholder="Variable Key"
-                            />
-                            <div className="flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    className="btn bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
-                                    onClick={closeVariableAddModel}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-                                    onClick={saveVariable}
                                 >
                                     Save
                                 </button>

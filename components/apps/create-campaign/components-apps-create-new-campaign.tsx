@@ -1,13 +1,14 @@
 'use client';
 
 //LIBRARIES
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import Swal from 'sweetalert2';
 import PerfectScrollbar from 'react-perfect-scrollbar';
 import Flatpickr from 'react-flatpickr';
 import Select, { MultiValue } from 'react-select';
 import { OptionProps } from 'react-select';
+import { useRouter } from 'next/navigation'
 
 //ELEMENTS
 import IconInfoHexagon from '@/components/icon/icon-info-hexagon';
@@ -34,8 +35,12 @@ import IconZipFile from '@/components/icon/icon-zip-file';
 import WhatsAppMessagePreview from './components-whatsappPreview';
 
 const ComponentsAppsCreateNewCampaign = () => {
-    const token = localStorage.getItem('authToken');
+    const router = useRouter();
 
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        router.push('/auth/boxed-signin');
+    }
     const [isShowMailMenu, setIsShowMailMenu] = useState<any>(false);
     const [isEdit, setIsEdit] = useState<any>(false);
     const [selectedTab, setSelectedTab] = useState<any>('details');
@@ -53,6 +58,7 @@ const ComponentsAppsCreateNewCampaign = () => {
     const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
     const [selectedRefTemplate, setSelectedRefTemplate] = useState<any>(null);
     const [selectedDocument, setSelectedDocument] = useState<any>(null);
+    const fileInputRef = useRef(null);
 
     //FETCH GROUPS
     useEffect(() => {
@@ -66,6 +72,11 @@ const ComponentsAppsCreateNewCampaign = () => {
                     },
                 });
                 const data = await response.json();
+                if (response.status === 401 && data.message === "Token expired! Please login again") {
+                    showMessage(data.message, 'error');
+                    router.push('/auth/boxed-signin');
+                    throw new Error('Token expired');
+                }
                 if (!response.ok) {
                     showMessage(data.message, 'error');
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -142,7 +153,7 @@ const ComponentsAppsCreateNewCampaign = () => {
         const groupNamesString = selectedOptions.map(option => option.value).join(', ');
         setData((prev: any) => ({
             ...prev,
-            groupId: groupNamesString,
+            groups: groupNamesString,
         }));
     };
     const selectedGroupIds = data.groups ? data.groups.split(', ') : [];
@@ -179,7 +190,6 @@ const ComponentsAppsCreateNewCampaign = () => {
         await setSelectedRefTemplate(template);
     };
 
-
     const handleInputChange = (e: any) => {
         const { name, value } = e.target;
         setData((prev: any) => ({
@@ -189,94 +199,62 @@ const ComponentsAppsCreateNewCampaign = () => {
     };
 
     const saveCampaign = async (send: any) => {
+        const formData = new FormData();
+        formData.append('name', data.name);
+        formData.append('type', data.type);
+
+        if (data.type === 'schedule') {
+            formData.append('schedule', date2);
+        }
+
+        formData.append('audience', selectedAudience);
+
+        if (selectedAudience === 'group') {
+            formData.append('groups', data.groups);
+        }
+
+        formData.append('messageType', messageType);
+        formData.append('caption', editorText);
+        formData.append('button', data.button);
+
+        if (send === 'yes') {
+            formData.append('send', send);
+        }
+
         if (messageType === 'marketing') {
-            const formData = new FormData();
-            formData.append('name', data.name);
-            formData.append('type', data.type);
-            if (data.type === 'schedule') {
-                formData.append('schedule', date2);
-            }
-            formData.append('audience', selectedAudience);
-            if (selectedAudience === "group") {
-                formData.append('groups', data.groups);
-            }
-            formData.append('messageType', messageType);
             formData.append('documentType', data.documentType);
             formData.append('document', selectedDocument);
-            formData.append('caption', editorText);
-            formData.append('button', data.button);
-            if (send === 'yes') {
-                formData.append('send', send);
-            }
-            // const logFormData = (formData) => {
-            //     for (let [key, value] of formData.entries()) {
-            //         console.log(`${key}: ${value instanceof File ? value.name : value}`);
-            //     }
-            // };
-            // logFormData(formData);
-
-            try {
-                const response = await fetch(apis.createCampaignMarketing, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    body: formData,
-                });
-
-                const newTemplate = await response.json();
-                if (response.ok) {
-                    showMessage(newTemplate.message);
-                } else {
-                    showMessage(newTemplate.message, 'error');
-                }
-            } catch (error) {
-                showMessage('Error uploading template', 'error');
-            }
         } else {
-            const formData = new FormData();
-            formData.append('name', data.name);
-            formData.append('type', data.type);
-            if (data.type === 'schedule') {
-                formData.append('schedule', date2);
-            }
-            formData.append('audience', selectedAudience);
-            if (selectedAudience === "group") {
-                formData.append('groups', data.groups);
-            }
-            formData.append('messageType', messageType);
             formData.append('document', selectedTemplate.file);
-            formData.append('selectedRefTemplate', selectedRefTemplate ? selectedRefTemplate._id : null); // Make sure to append the _id
-            formData.append('caption', editorText);
-            formData.append('button', data.button);
-            if (send === 'yes') {
-                formData.append('send', send);
-            }
-            // const logFormData = (formData) => {
-            //     for (let [key, value] of formData.entries()) {
-            //         console.log(`${key}: ${value instanceof File ? value.name : value}`);
-            //     }
-            // };
-            // logFormData(formData);
+            formData.append(
+                'selectedRefTemplate',
+                selectedRefTemplate ? selectedRefTemplate._id : null
+            );
+        }
 
-            try {
-                const response = await fetch(apis.createCampaignUtility, {
+        try {
+            const response = await fetch(
+                messageType === 'marketing'
+                    ? apis.createCampaignMarketing
+                    : apis.createCampaignUtility,
+                {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${token}`,
+                        Authorization: `Bearer ${token}`,
                     },
                     body: formData,
-                });
-
-                const newTemplate = await response.json();
-                if (response.ok) {
-                    showMessage(newTemplate.message);
-                } else {
-                    showMessage(newTemplate.message, 'error');
                 }
-            } catch (error) {
-                showMessage('Error uploading template', 'error');
+            );
+
+            const newTemplate = await response.json();
+            if (response.ok) {
+                showMessage(newTemplate.message);
+                router.push('/apps/create-campaign');
+            } else {
+                showMessage(newTemplate.message, 'error');
             }
+        } catch (error) {
+            showMessage('Error uploading template', 'error');
         }
     };
 
@@ -303,9 +281,41 @@ const ComponentsAppsCreateNewCampaign = () => {
         setSelectedRefTemplate("");
     };
 
-    const handleFileChange = (event: any) => {
-        const file = event.target.files[0];
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+
         if (file) {
+            const fileType = file.type;
+
+            if (data.documentType === "image" && !["image/jpeg", "image/png"].includes(fileType)) {
+                alert("Please select a valid JPEG or PNG image.");
+                event.target.value = "";
+                return;
+            }
+
+            if (data.documentType === "video" && !["video/mp4", "video/3gp"].includes(fileType)) {
+                alert("Please select a valid MP4 or 3GP video.");
+                event.target.value = "";
+                return;
+            }
+
+            if (
+                data.documentType === "document" &&
+                ![
+                    "application/pdf",
+                    "application/msword", // .doc
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+                    "text/plain", // .txt
+                    "application/vnd.ms-excel", // .xls
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+                    "application/vnd.ms-powerpoint", // .ppt
+                    "application/vnd.openxmlformats-officedocument.presentationml.presentation" // .pptx
+                ].includes(fileType)
+            ) {
+                alert("Please select a valid document file (PDF, DOC, DOCX, TXT, XLS, XLSX, PPT, or PPTX).");
+                event.target.value = "";
+                return;
+            }
             setSelectedDocument(file);
             setData((prev: any) => ({ ...prev, document: file }));
         }
@@ -336,6 +346,24 @@ const ComponentsAppsCreateNewCampaign = () => {
         } catch (error) {
             console.error('Error fetching group names:', error);
         }
+    };
+
+    const formattedText = formatTextForDisplay(editorText);
+    function formatTextForDisplay(text: any) {
+        return text
+            .replace(/\*__(.*?)__\*/g, '<strong><u>$1</u></strong>')   // Bold + Underline
+            .replace(/~\*(.*?)\*~/g, '<del><strong>$1</strong></del>') // Bold + Strikethrough
+            .replace(/_\*(.*?)\*_/g, '<em><strong>$1</strong></em>')   // Bold + Italic
+            .replace(/~_(.*?)_~/g, '<del><em>$1</em></del>')           // Italic + Strikethrough
+            .replace(/__~(.*?)~__/g, '<u><del>$1</del></u>')           // Underline + Strikethrough
+            .replace(/__\*(.*?)\*__/g, '<u><strong>$1</strong></u>')   // Bold + Underline
+            .replace(/\*~(.*?)~\*/g, '<strong><del>$1</del></strong>') // Bold + Strikethrough
+            .replace(/\*_(.*?)_\*/g, '<strong><em>$1</em></strong>')   // Bold + Italic
+            .replace(/~(.*?)~/g, '<del>$1</del>')                      // Strikethrough only
+            .replace(/\*(.*?)\*/g, '<strong>$1</strong>')              // Bold only
+            .replace(/_(.*?)_/g, '<em>$1</em>')                        // Italic only
+            .replace(/__(.*?)__/g, '<u>$1</u>')                        // Underline only
+            .replace(/\n/g, '<br>');                                   // Line breaks
     };
 
     return (
@@ -407,6 +435,7 @@ const ComponentsAppsCreateNewCampaign = () => {
                                             }`}
                                         onClick={() => {
                                             setSelectedTab('template');
+                                            setSelectedDocument('');
                                         }}
                                     >
                                         <div className="flex items-center">
@@ -499,6 +528,7 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                     enableTime: true,
                                                                     dateFormat: 'Y-m-d H:i',
                                                                     position: isRtl ? 'auto right' : 'auto left',
+                                                                    minDate: new Date(),
                                                                 }}
                                                                 defaultValue={date2}
                                                                 className="form-input sm:ml-2 flex-1"
@@ -618,7 +648,11 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                     className="form-radio text-primary focus:ring-primary"
                                                                     value="marketing"
                                                                     checked={messageType === "marketing"}
-                                                                    onChange={() => setMessageType("marketing")}
+                                                                    onChange={() => {
+                                                                        setMessageType("marketing");
+                                                                        setSelectedTemplate('');
+                                                                        setSelectedRefTemplate('');
+                                                                    }}
                                                                 />
                                                                 <span className="ml-2 text-gray-600 dark:text-gray-300">Marketing</span>
                                                             </label>
@@ -629,7 +663,10 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                     className="form-radio text-primary focus:ring-primary"
                                                                     value="utility"
                                                                     checked={messageType === "utility"}
-                                                                    onChange={() => setMessageType("utility")}
+                                                                    onChange={() => {
+                                                                        setMessageType("utility");
+                                                                        setSelectedDocument('');
+                                                                    }}
                                                                 />
                                                                 <span className="ml-2 text-gray-600 dark:text-gray-300">Utility</span>
                                                             </label>
@@ -650,25 +687,53 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                         { value: 'document', label: 'Document' },
                                                                     ]}
                                                                     value={data.documentType ? { value: data.documentType, label: data.documentType.charAt(0).toUpperCase() + data.documentType.slice(1) } : null}
-                                                                    onChange={(selectedOption) => setData((prev: any) => ({ ...prev, 'documentType': selectedOption?.value }))}
+                                                                    onChange={(selectedOption) => {
+                                                                        setData((prev: any) => ({ ...prev, 'documentType': selectedOption?.value }));
+                                                                        setSelectedDocument("");
+                                                                        setData((prev: any) => ({ ...prev, document: null }));
+                                                                    }}
                                                                 />
                                                             </div>
 
-                                                            <div className="flex sm:flex-row flex-col items-center">
-                                                                <label className="sm:w-1/4 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300">File</label>
-                                                                <input
-                                                                    id="ctnFile"
-                                                                    type="file"
-                                                                    className="form-input sm:ml-2 w-full file:py-2 file:px-4 file:border-0 file:font-semibold p-0 file:bg-primary/90 ltr:file:mr-5 rtl:file-ml-5 file:text-white hover:file:bg-primary"
-                                                                    required
-                                                                    onChange={(event: any) => handleFileChange(event)}
-                                                                />
-                                                                {data.document && (
-                                                                    <div className="mt-2">
-                                                                        <p> <b>Selected file:</b> {data.document.name}</p>
-                                                                    </div>
-                                                                )}
-                                                            </div>
+                                                            {(data.documentType !== "text") && (
+                                                                <div className="flex sm:flex-row flex-col items-center">
+                                                                    <label className="sm:w-1/4 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300">File</label>
+                                                                    <input
+                                                                        ref={fileInputRef}
+                                                                        id="ctnFile"
+                                                                        type="file"
+                                                                        className="form-input sm:ml-2 w-full file:py-2 file:px-4 file:border-0 file:font-semibold p-0 file:bg-primary/90 ltr:file:mr-5 rtl:file:ml-5 file:text-white hover:file:bg-primary"
+                                                                        required
+                                                                        accept={
+                                                                            data.documentType === "image"
+                                                                                ? "image/jpeg,image/png"
+                                                                                : data.documentType === "video"
+                                                                                    ? "video/mp4,video/3gp"
+                                                                                    : data.documentType === "document"
+                                                                                        ? ".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx"
+                                                                                        : ""
+                                                                        }
+                                                                        onChange={(event) => handleFileChange(event)}
+                                                                    />
+                                                                    {data.document && (
+                                                                        <div className="mt-2 flex items-center">
+                                                                            <p className="mr-2">
+                                                                                <b>Selected file:</b> {data?.document?.name}
+                                                                            </p>
+                                                                            <button
+                                                                                type="button"
+                                                                                className="text-red-600 hover:text-red-800"
+                                                                                onClick={() => {
+                                                                                    setSelectedDocument("");
+                                                                                    setData((prev: any) => ({ ...prev, document: null }));
+                                                                                }}
+                                                                            >
+                                                                                &times;
+                                                                            </button>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                         </>
                                                     )}
 
@@ -676,7 +741,9 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                         <label className="sm:w-1/4 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300">Caption</label>
                                                         <CustomEditor
                                                             value={editorText}
-                                                            onChange={(text: string) => setEditorText(text)}
+                                                            onChange={(text: string) => {
+                                                                setEditorText(text);
+                                                            }}
                                                         />
                                                     </div>
 
@@ -718,6 +785,7 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                     <div className="flex sm:flex-row flex-col items-center">
                                                         <label className="sm:w-1/4 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300">Choose Template</label>
                                                         <input
+                                                            ref={fileInputRef}
                                                             id="template"
                                                             name="template"
                                                             type="file"
@@ -732,8 +800,20 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                 : "No template selected"}
                                                         </label>
                                                         {selectedTemplate && (
-                                                            <div className="mt-2">
-                                                                <p> <b>Selected file:</b> {selectedTemplate.file.name}</p>
+                                                            <div className="mt-2 flex items-center">
+                                                                <p className="mr-2">
+                                                                    <b>Selected file:</b> {selectedTemplate.file.name}
+                                                                </p>
+                                                                <button
+                                                                    type="button"
+                                                                    className="text-red-600 hover:text-red-800 ml-2"
+                                                                    onClick={() => {
+                                                                        setSelectedTemplate('');
+                                                                        setSelectedImageUrl('');
+                                                                    }}
+                                                                >
+                                                                    &times;
+                                                                </button>
                                                             </div>
                                                         )}
                                                     </div>
@@ -766,29 +846,6 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                         </div>
                                                     )}
 
-                                                    <div className="flex mt-4 space-x-4">
-                                                        {selectedTemplate && (
-                                                            <div className="w-1/2 border border-gray-300 rounded-lg p-2 flex flex-col items-center justify-center">
-                                                                <h3 className="text-center mb-2 font-bold">Selected Template</h3>
-                                                                <img
-                                                                    src={selectedTemplate.imageUrl}
-                                                                    alt="Selected Template"
-                                                                    style={{ width: '100%', height: 'auto', maxWidth: 270 }}
-                                                                />
-                                                            </div>
-                                                        )}
-                                                        {selectedImageUrl && (
-                                                            <div className="w-1/2 border border-gray-300 rounded-lg p-2 flex flex-col items-center justify-center">
-                                                                <h3 className="text-center mb-2 font-bold">Selected Ref Format</h3>
-                                                                <img
-                                                                    src={selectedImageUrl}
-                                                                    alt="Selected Ref Format"
-                                                                    style={{ width: '100%', height: 'auto', maxWidth: 270 }}
-                                                                />
-                                                            </div>
-                                                        )}
-                                                    </div>
-
                                                     <div className="flex sm:flex-row flex-col justify-between mt-6">
                                                         <button
                                                             type="button"
@@ -815,43 +872,64 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                         <div className="space-y-5">
                                                             <div className="text-lg font-semibold">Preview & Save</div>
 
-                                                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                                                                <div className="panel flex items-center p-4 bg-white rounded-lg shadow-md">
-                                                                    <IconMenuDocumentation className="text-4xl text-blue-600" />
-                                                                    <div className="ml-4 text-right">
-                                                                        <div className="text-xl font-bold">{data.name}</div>
+                                                            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2">
+                                                                {/* Campaign Name */}
+                                                                <div className="flex items-center p-6 bg-white rounded-lg shadow-md">
+                                                                    <IconMenuDocumentation className="text-4xl text-blue-600 mr-4" />
+                                                                    <div className="text-left">
+                                                                        <div className="text-xl font-semibold text-gray-800">{data.name}</div>
                                                                         <div className="text-sm font-light text-gray-400">Campaign Name</div>
                                                                     </div>
                                                                 </div>
 
-                                                                <div className="panel flex items-center p-4 bg-white rounded-lg shadow-md">
-                                                                    <IconDesktop className="text-4xl text-green-600" />
-                                                                    <div className="ml-4 text-right">
-                                                                        <div className="text-xl font-bold">{data.type}</div>
+                                                                {/* Trigger Campaign */}
+                                                                <div className="flex items-center p-6 bg-white rounded-lg shadow-md">
+                                                                    <IconDesktop className="text-4xl text-green-600 mr-4" />
+                                                                    <div className="text-left">
+                                                                        <div className="text-xl font-semibold text-gray-800">{data.type}</div>
                                                                         <div className="text-sm font-light text-gray-400">Trigger Campaign</div>
                                                                     </div>
                                                                 </div>
 
-                                                                <div className="panel flex items-center p-4 bg-white rounded-lg shadow-md">
-                                                                    <IconUser className="text-4xl text-purple-600" />
-                                                                    <div className="ml-4 text-right">
-                                                                        <div className="text-xl font-bold">{selectedAudience}</div>
+                                                                {/* Audience Type */}
+                                                                <div className="flex items-center p-6 bg-white rounded-lg shadow-md">
+                                                                    <IconUser className="text-4xl text-purple-600 mr-4" />
+                                                                    <div className="text-left">
+                                                                        <div className="text-xl font-semibold text-gray-800">
+                                                                            {(() => {
+                                                                                const formatAudience = (audience: any) => {
+                                                                                    switch (audience) {
+                                                                                        case 'allContacts':
+                                                                                            return 'All Contacts';
+                                                                                        case 'group':
+                                                                                            return 'Group';
+                                                                                        case 'favoriteContacts':
+                                                                                            return 'Favorite Contacts';
+                                                                                        default:
+                                                                                            return audience;
+                                                                                    }
+                                                                                };
+                                                                                return formatAudience(selectedAudience);
+                                                                            })()}
+                                                                        </div>
                                                                         <div className="text-sm font-light text-gray-400">Audience Type</div>
                                                                     </div>
                                                                 </div>
 
-                                                                <div className="panel flex items-center p-4 bg-white rounded-lg shadow-md">
-                                                                    <IconUsersGroup className="text-4xl text-yellow-600" />
-                                                                    <div className="ml-4 text-right">
-                                                                        <div className="text-xl font-bold">{audienceCount}</div>
+                                                                {/* Audience Size */}
+                                                                <div className="flex items-center p-6 bg-white rounded-lg shadow-md">
+                                                                    <IconUsersGroup className="text-4xl text-yellow-600 mr-4" />
+                                                                    <div className="text-left">
+                                                                        <div className="text-xl font-semibold text-gray-800">{audienceCount}</div>
                                                                         <div className="text-sm font-light text-gray-400">Audience Size</div>
                                                                     </div>
                                                                 </div>
 
-                                                                <div className="panel flex items-center p-4 bg-white rounded-lg shadow-md">
-                                                                    <IconMessage className="text-4xl text-red-600" />
-                                                                    <div className="ml-4 text-right">
-                                                                        <div className="text-xl font-bold">{messageType}</div>
+                                                                {/* Messages */}
+                                                                <div className="flex items-center p-6 bg-white rounded-lg shadow-md">
+                                                                    <IconMessage className="text-4xl text-red-600 mr-4" />
+                                                                    <div className="text-left">
+                                                                        <div className="text-xl font-semibold text-gray-800">{messageType}</div>
                                                                         <div className="text-sm font-light text-gray-400">Messages</div>
                                                                     </div>
                                                                 </div>
@@ -878,7 +956,6 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                     </button>
                                                                 )}
                                                             </div>
-
                                                         </div>
                                                     </form>
 
@@ -886,19 +963,23 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                     <div className="panel p-4 bg-white rounded-lg shadow-md">
                                                         {/* <div className="whatsapp-preview bg-gray-100 p-4 rounded-lg shadow-lg"> */}
                                                         <div className="whatsapp-message bg-green-50 rounded-lg overflow-hidden">
-                                                            {/* {(selectedTemplate || data.document) && (
+                                                            {(selectedDocument || data.document) &&
+                                                                !selectedTemplate &&
+                                                                data?.document?.type?.startsWith("image/") && (
                                                                     <img
-                                                                        src={URL.createObjectURL(selectedTemplate?.file || data?.document)}
+                                                                        src={URL.createObjectURL(data?.document)}
                                                                         alt="preview"
                                                                         className="w-full object-cover"
                                                                     />
-                                                                )} */}
-                                                            <WhatsAppMessagePreview
-                                                                selectedTemplate={selectedTemplate}
-                                                                selectedRefTemplate={selectedRefTemplate}
-                                                            />
+                                                                )}
+                                                            {selectedTemplate && selectedRefTemplate && !selectedDocument && (
+                                                                <WhatsAppMessagePreview
+                                                                    selectedTemplate={selectedTemplate}
+                                                                    selectedRefTemplate={selectedRefTemplate}
+                                                                />
+                                                            )}
                                                             <div className="p-3 text-gray-800 text-base">
-                                                                <p>{editorText}</p>
+                                                                <p dangerouslySetInnerHTML={{ __html: formattedText }} />
                                                             </div>
                                                         </div>
                                                         {/* </div> */}

@@ -10,10 +10,15 @@ import React, { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import apis from '../../../public/apis';
 import IconCopy from '@/components/icon/icon-copy';
+import { useRouter } from 'next/navigation'
 
 const ComponentsAppsCreateTemplate = () => {
+    const router = useRouter();
+
     const token = localStorage.getItem('authToken');
-    const [items, setItems] = useState<any>([]);
+    if (!token) {
+        router.push('/auth/boxed-signin');
+    }    const [items, setItems] = useState<any>([]);
 
     const [page, setPage] = useState<any>(1);
     const PAGE_SIZES = [10, 20, 30, 50, 100];
@@ -30,61 +35,10 @@ const ComponentsAppsCreateTemplate = () => {
         direction: 'asc',
     });
 
-    //DUMMY SET
-
-    // const [image, setImage] = useState(null);
-    // const [username, setUsername] = useState('');
-    // const [profilePicUrl, setProfilePicUrl] = useState('');
-    // const [preview, setPreview] = useState(null);
-
-    // const handleSubmit = async (e) => {
-    //     e.preventDefault();
-
-    //     // // Prepare FormData
-    //     // const formData = new FormData();
-    //     // // formData.append('template', image); // Use 'template' field for the image file
-    //     // formData.append('videoPath', "http://localhost:8080/./public/videoplayback.mp4"); // Use 'template' field for the image file
-    //     // formData.append('username', "Jaimin");
-    //     // formData.append('logoPath', "http://localhost:8080/./public/profile_picture/6666666666.jpg");
-
-    //     let formData = {
-    //         videoPath: "http://localhost:8080/./public/videoplayback.mp4", // Use 'template' field for the image file
-    //         username: "Jaimin",
-    //         logoPath: "http://localhost:8080/./public/profile_picture/testImage.png",
-    //     };
-
-    //     try {
-    //         const res = await fetch('http://localhost:8080/template/processVideo', {  //FOR VIDEO
-    //         // const res = await fetch('http://localhost:8080/template/testAPI', {  //FOR IMAGE
-    //             method: 'POST',
-    //             headers: {
-    //                 'Content-Type': 'application/json',  // Set content-type to application/json
-    //             },
-    //             body: JSON.stringify(formData),
-    //         });
-
-    //         if (res.ok) {
-    //             //FOR IMAGE
-    //             const blob = await res.blob();
-    //             // setPreview(URL.createObjectURL(blob));
-
-    //             //FOR VIDEO
-    //             const videoURL = URL.createObjectURL(blob);
-    //             setPreview(videoURL);
-    //         } else {
-    //             console.error('Error processing image');
-    //         }
-    //     } catch (error) {
-    //         console.error('Error submitting form:', error);
-    //     }
-    // };
-
-    //DUMMY SET OVER
-
     useEffect(() => {
         const fetchAllTemplates = async () => {
             try {
-                const response = await fetch(apis.getAllTemplates, {
+                const response = await fetch(apis.getAllReferenceTemplateFormat, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -92,6 +46,11 @@ const ComponentsAppsCreateTemplate = () => {
                     },
                 });
                 const data = await response.json();
+                if (response.status === 401 && data.message === "Token expired! Please login again") {
+                    showMessage(data.message, 'error');
+                    router.push('/auth/boxed-signin');
+                    throw new Error('Token expired');
+                }
                 if (!response.ok) {
                     showMessage(data.message, 'error');
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -165,7 +124,7 @@ const ComponentsAppsCreateTemplate = () => {
                 if (_id) {
                     await deleteTemplateAPI(_id);
 
-                    const updatedItems = items.filter((user: any) => user._id !== _id);
+                    const updatedItems = records.filter((user: any) => user._id !== _id);
                     setRecords(updatedItems);
                     setInitialRecords(updatedItems);
                     setItems(updatedItems);
@@ -175,7 +134,7 @@ const ComponentsAppsCreateTemplate = () => {
                     let selectedRows = selectedRecords || [];
                     const ids = selectedRows.map((d: any) => d._id);
                     await Promise.all(ids.map((_id: any) => deleteTemplateAPI(_id)));
-                    const result = items.filter((d: any) => !ids.includes(d._id as never));
+                    const result = records.filter((d: any) => !ids.includes(d._id as never));
                     setRecords(result);
                     setInitialRecords(result);
                     setItems(result);
@@ -192,7 +151,7 @@ const ComponentsAppsCreateTemplate = () => {
     };
 
     const deleteTemplateAPI = async (_id: any) => {
-        const response = await fetch(apis.deleteTemplate, {
+        const response = await fetch(`${apis.deleteRefTemplate}${_id}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
@@ -215,6 +174,28 @@ const ComponentsAppsCreateTemplate = () => {
     const closeModal = () => {
         setIsModalOpen(false);
         setSelectedImage(null);
+    };
+
+    const handleSelectAllChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            setSelectedRecords(records);
+        } else {
+            setSelectedRecords([]);
+        }
+    };
+    const isAllSelected = selectedRecords.length === records.length && records.length > 0;
+
+    const isRecordSelected = (record: any) => {
+        return selectedRecords.some((selected: any) => selected._id === record._id);
+    };
+
+    const handleCheckboxChange = (record: any) => {
+        const isSelected = selectedRecords.some((selected: any) => selected._id === record._id);
+        if (isSelected) {
+            setSelectedRecords(selectedRecords.filter((selected: any) => selected._id !== record._id));
+        } else {
+            setSelectedRecords([...selectedRecords, record]);
+        }
     };
 
     return (
@@ -242,14 +223,32 @@ const ComponentsAppsCreateTemplate = () => {
                         records={records}
                         columns={[
                             {
-                                accessor: 'template',
+                                accessor: 'checkbox',
+                                title: (
+                                    <input
+                                        type="checkbox"
+                                        checked={isAllSelected}
+                                        onChange={handleSelectAllChange}
+                                    />
+                                ),
+                                render: (record) => (
+                                    <input
+                                        type="checkbox"
+                                        checked={isRecordSelected(record)}
+                                        onChange={() => handleCheckboxChange(record)}
+                                    />
+                                ),
+                            },
+                            {
+                                accessor: 'templateFormat',
+                                title: 'Image',
                                 sortable: true,
                                 render: (record) => {
-                                    const { template } = record as { template: any }; // Cast record to the expected type
-                                    return template?.url ? (
+                                    const { templateFormat } = record as { templateFormat: any }; // Cast record to the expected type
+                                    return templateFormat?.url ? (
                                         <div className="flex items-center font-semibold">
-                                            <div className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2" onClick={() => openModal(template?.url)}>
-                                                <img className="h-8 w-8 rounded-full object-cover" src={template.url} alt="" />
+                                            <div className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2" onClick={() => openModal(templateFormat?.url)}>
+                                                <img className="h-8 w-8 rounded-full object-cover" src={templateFormat.url} alt="" />
                                             </div>
                                         </div>
                                     ) : null;
@@ -258,6 +257,14 @@ const ComponentsAppsCreateTemplate = () => {
                             },
                             {
                                 accessor: 'name',
+                                sortable: true,
+                            },
+                            {
+                                accessor: 'height',
+                                sortable: true,
+                            },
+                            {
+                                accessor: 'width',
                                 sortable: true,
                             },
                             {
@@ -282,32 +289,29 @@ const ComponentsAppsCreateTemplate = () => {
                                     );
                                 },
                             },
-                            {
-                                accessor: 'isApproved',
-                                sortable: true,
-                                render: (record) => {
-                                    const { isApproved } = record as { isApproved: string }; // Cast record to the expected type
-                                    return (
-                                        <button
-                                            className={`btn ${isApproved === 'yes' ? 'btn-success' : 'btn-danger'}`}
-                                        >
-                                            {isApproved === 'yes' ? 'Approved' : 'Not Approved'}
-                                        </button>
-                                    );
-                                },
-                            },
+                            // {
+                            //     accessor: 'isApproved',
+                            //     sortable: true,
+                            //     render: (record) => {
+                            //         const { isApproved } = record as { isApproved: string }; // Cast record to the expected type
+                            //         return (
+                            //             <button
+                            //                 className={`btn ${isApproved === 'yes' ? 'btn-success' : 'btn-danger'}`}
+                            //             >
+                            //                 {isApproved === 'yes' ? 'Approved' : 'Not Approved'}
+                            //             </button>
+                            //         );
+                            //     },
+                            // },
                             {
                                 accessor: 'action',
                                 title: 'Actions',
                                 sortable: false,
                                 textAlignment: 'center',
                                 render: (record) => {
-                                    const { _id } = record as { _id: string }; 
+                                    const { _id } = record as { _id: string };
                                     return (
                                         <div className="mx-auto flex w-max items-center gap-4">
-                                            <Link href="/apps/create-template/create-new" className="flex hover:text-info">
-                                                <IconCopy className="h-4.5 w-4.5" />
-                                            </Link>
                                             <Link href="/apps/create-template/create-new" className="flex hover:text-info">
                                                 <IconEdit className="h-4.5 w-4.5" />
                                             </Link>
@@ -335,8 +339,6 @@ const ComponentsAppsCreateTemplate = () => {
                         onRecordsPerPageChange={setPageSize}
                         sortStatus={sortStatus}
                         onSortStatusChange={setSortStatus}
-                        selectedRecords={selectedRecords}
-                        onSelectedRecordsChange={setSelectedRecords}
                         paginationText={({ from, to, totalRecords }) => `Showing  ${from} to ${to} of ${totalRecords} entries`}
                     />
                 </div>
@@ -359,51 +361,6 @@ const ComponentsAppsCreateTemplate = () => {
                 </div>
             )}
         </div>
-
-        // TEST PART
-        // <div>
-        //     <h1>Send Personalized Image</h1>
-        //     <form onSubmit={handleSubmit}>
-        //         <div>
-        //             <label>Upload Image:</label>
-        //             <input
-        //                 type="file"
-        //                 accept="image/*"
-        //                 onChange={(e) => setImage(e.target.files ? e.target.files[0] : null)}
-        //             />
-        //         </div>
-        //         <div>
-        //             <label>Username:</label>
-        //             <input
-        //                 type="text"
-        //                 value={username}
-        //                 onChange={(e) => setUsername(e.target.value)}
-        //             />
-        //         </div>
-        //         <div>
-        //             <label>Profile Picture URL:</label>
-        //             <input
-        //                 type="text"
-        //                 value={profilePicUrl}
-        //                 onChange={(e) => setProfilePicUrl(e.target.value)}
-        //             />
-        //         </div>
-        //         <button type="submit">Generate Image</button>
-        //     </form>
-
-        //     {/* {preview && (
-        //         <div>
-        //             <h2>Preview:</h2>
-        //             <img src={preview} alt="Generated" />
-        //         </div>
-        //     )} */}
-        //     {preview && (
-        //         <video controls width="600" src={preview}>
-        //             Your browser does not support the video tag.
-        //         </video>
-        //     )}
-        // </div>
-        //TEST PART OVER
     );
 };
 

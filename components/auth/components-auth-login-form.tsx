@@ -40,7 +40,6 @@ const ComponentsAuthLoginForm = () => {
             const data = await response.json();
             localStorage.setItem('authToken', data.token);
             router.push('/');
-
         } catch (error) {
             setError('Login failed. Please try again.');
             console.error('There was an error!', error);

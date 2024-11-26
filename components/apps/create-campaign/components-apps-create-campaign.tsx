@@ -7,6 +7,7 @@ import Link from 'next/link';
 import React, { Fragment, useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { useSelector } from 'react-redux';
+import { useRouter } from 'next/navigation'
 
 //import components
 import IconEdit from '@/components/icon/icon-edit';
@@ -20,16 +21,20 @@ import { IRootState } from '@/store';
 import { Transition, Dialog } from '@headlessui/react';
 
 //File Import
-import apis from '../../../public/apis';
+import apis, { duplicateCampaign } from '../../../public/apis';
 import IconCaretDown from '@/components/icon/icon-caret-down';
 import IconSend from '@/components/icon/icon-send';
 import IconPlusCircle from '@/components/icon/icon-plus-circle';
 import IconX from '@/components/icon/icon-x';
 
 const ComponentsAppsCreateCampaign = () => {
+    const router = useRouter();
+
     const isRtl = useSelector((state: IRootState) => state.themeConfig.rtlClass) === 'rtl';
     const token = localStorage.getItem('authToken');
-    const [items, setItems] = useState<any>([]);
+    if (!token) {
+        router.push('/auth/boxed-signin');
+    } const [items, setItems] = useState<any>([]);
 
     const [page, setPage] = useState<any>(1);
     const PAGE_SIZES = [10, 20, 30, 50, 100];
@@ -40,6 +45,7 @@ const ComponentsAppsCreateCampaign = () => {
     const [isModalOpen, setIsModalOpen] = useState<any>(false);
     const [selectedImage, setSelectedImage] = useState<any>(null);
     const [viewHealthModal, setViewHealthModal] = useState<any>(false);
+    const [duplicateModel, setDuplicateModel] = useState<any>(false);
     const [overallHealth, setOverallHealth] = useState<any>(null);
     const [phonenumberHealth, setPhonenumberHealth] = useState<any>(null);
     const [wabaHealth, setWabaHealth] = useState<any>(null);
@@ -49,6 +55,8 @@ const ComponentsAppsCreateCampaign = () => {
         columnAccessor: 'firstName',
         direction: 'asc',
     });
+    const [duplicateCampaignName, setDuplicateCampaignName] = useState("");
+    const [duplicateCampaignId, setDuplicateCampaignId] = useState(null);
 
     //FETCH ALL CAMPAIGNS
     useEffect(() => {
@@ -62,6 +70,12 @@ const ComponentsAppsCreateCampaign = () => {
                     },
                 });
                 const data = await response.json();
+                if (response.status === 401 && data.message === "Token expired! Please login again") {
+                    showMessage(data.message, 'error');
+                    router.push('/auth/boxed-signin');
+                    throw new Error('Token expired');
+                }
+
                 if (!response.ok) {
                     showMessage(data.message, 'error');
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -227,6 +241,49 @@ const ComponentsAppsCreateCampaign = () => {
         }
     };
 
+    const openDuplicateModal = (id: any) => {
+        setDuplicateCampaignId(id);
+        setDuplicateModel(true);
+    };
+
+    const handleSaveDuplicateCampaign = async () => {
+        if (!duplicateCampaignName) {
+            alert("Please enter a name for the duplicate campaign.");
+            return;
+        }
+        const response = await fetch(`${apis.duplicateCampaign}${duplicateCampaignId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({ name: duplicateCampaignName })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            if (response.status === 404) {
+                showMessage("Original campaign not found.", 'error');
+            } else if (response.status === 403) {
+                showMessage(`Campaign with the name "${duplicateCampaignName}" already exists! Please use a different name.`, 'error');
+                setDuplicateModel(false);
+                setDuplicateCampaignName(duplicateCampaignName);
+            } else {
+                showMessage(data.message || "An error occurred while duplicating the campaign.", 'error');
+            }
+            return;
+        }
+        setItems([...items, data.data]);
+        showMessage(data.message);
+        setDuplicateModel(false);
+        setDuplicateCampaignName('');
+    };
+
+    const isImageUrl = (url: any) => {
+        const imageExtensions = ["jpeg", "png"];
+        const extension = url?.split(".").pop()?.toLowerCase();
+        return imageExtensions.includes(extension);
+    };
+
     return (
         <div>
             <div>
@@ -263,10 +320,10 @@ const ComponentsAppsCreateCampaign = () => {
                                         <button type="button" >Re-target Campaigns</button>
                                     </li>
                                     <li>
-                                        <button type="button" >Quick Campaigns</button>
+                                        <button type="button" >Immediate Campaigns</button>
                                     </li>
                                     <li>
-                                        <button type="button" >Bulk Campaigns</button>
+                                        <button type="button" >Schedule Campaigns</button>
                                     </li>
                                 </ul>
                             </Dropdown>
@@ -288,9 +345,18 @@ const ComponentsAppsCreateCampaign = () => {
                                 render: ({ name, document, _id }) => (
                                     document?.url ? (
                                         <div className="flex items-center font-semibold">
-                                            <div className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2" onClick={() => openModal(document?.url)}>
-                                                <img className="h-8 w-8 rounded-full object-cover" src={document?.url} alt="" />
-                                            </div>
+                                            {isImageUrl(document?.url) && (
+                                                <div
+                                                    className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2"
+                                                    onClick={() => openModal(document?.url)}
+                                                >
+                                                    <img
+                                                        className="h-8 w-8 rounded-full object-cover"
+                                                        src={document?.url}
+                                                        alt="Document Thumbnail"
+                                                    />
+                                                </div>
+                                            )}
                                             <div>{name}</div>
                                         </div>
                                     ) : <div>{name}</div>
@@ -327,14 +393,15 @@ const ComponentsAppsCreateCampaign = () => {
                                 accessor: 'receiver',
                                 sortable: true,
                                 render: ({ receiver }) => (
-                                    <span className="badge badge-outline-primary">{receiver}</span>
+                                    <span className="badge badge-outline-primary">{receiver ? receiver : 0}</span>
                                 ),
                             },
                             {
-                                accessor: 'messages',
+                                accessor: 'countAudience',
+                                title: 'Messages',
                                 sortable: true,
-                                render: ({ messages }) => (
-                                    <span className="badge badge-outline-secondary">{messages}</span>
+                                render: ({ countAudience }) => (
+                                    <span className="badge badge-outline-secondary">{countAudience}</span>
                                 ),
                             },
                             {
@@ -377,29 +444,37 @@ const ComponentsAppsCreateCampaign = () => {
                                 textAlignment: 'center',
                                 render: ({ _id, schedule, overallHealth, phonenumberHealth, wabaHealth, businessHealth, status }) => (
                                     <div className="mx-auto flex w-max items-center gap-4">
-                                        {(schedule === "immediate" || status !== "completed") ? (
+                                        {(schedule === "immediate" || status !== "completed") && (
                                             <button className="flex hover:text-primary" onClick={() => sendMessage(_id)}>
                                                 <IconSend />
                                             </button>
-                                        ) : null}
-                                        <Link href="/apps/create-template/create-new" className="flex hover:text-info">
-                                            <IconEdit className="h-4.5 w-4.5" />
-                                        </Link>
-                                        <Link href="/apps/create-template/create-new" className="flex hover:text-info">
-                                            <IconDownload className="h-4.5 w-4.5" />
-                                        </Link>
-                                        <Link href="/apps/create-template/create-new" className="flex hover:text-info">
-                                            <IconCopy className="h-4.5 w-4.5" />
-                                        </Link>
-                                        <Link href="/apps/create-template/create-new" className="flex hover:text-info">
-                                            <IconEye className="h-4.5 w-4.5" />
-                                        </Link>
-                                        <button className="flex hover:text-primary" onClick={() => viewHealth(overallHealth, phonenumberHealth, wabaHealth, businessHealth)}>
-                                            <IconPlusCircle />
-                                        </button>
-                                        <button type="button" className="flex hover:text-danger" onClick={(e) => deleteRow(_id)}>
-                                            <IconTrashLines />
-                                        </button>
+                                        )}
+
+                                        {status === "completed" ? (
+                                            <>
+                                                <button className="flex hover:text-primary" onClick={() => openDuplicateModal(_id)}>
+                                                    <IconCopy className="h-4.5 w-4.5" />
+                                                </button>
+                                                <Link href={`/apps/create-campaign/overview?_id=${_id}`} className="flex hover:text-info">
+                                                    <IconEye className="h-4.5 w-4.5" />
+                                                </Link>
+                                                <button type="button" className="flex hover:text-danger" onClick={() => deleteRow(_id)}>
+                                                    <IconTrashLines />
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Link href="/apps/create-campaign" className="flex hover:text-info">
+                                                    <IconEdit className="h-4.5 w-4.5" />
+                                                </Link>
+                                                <button className="flex hover:text-primary" onClick={() => openDuplicateModal(_id)}>
+                                                    <IconCopy className="h-4.5 w-4.5" />
+                                                </button>
+                                                <button type="button" className="flex hover:text-danger" onClick={() => deleteRow(_id)}>
+                                                    <IconTrashLines />
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
                                 ),
                             },
@@ -488,6 +563,53 @@ const ComponentsAppsCreateCampaign = () => {
                                 </Dialog.Panel>
                             </Transition.Child>
                         </div>
+                    </div>
+                </Dialog>
+            </Transition>
+
+            <Transition appear show={duplicateModel} as={Fragment}>
+                <Dialog as="div" open={duplicateModel} onClose={() => setDuplicateModel(false)} className="relative z-50">
+                    <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
+                        <div className="fixed inset-0 bg-black bg-opacity-70" />
+                    </Transition.Child>
+                    <div className="fixed inset-0 flex items-center justify-center">
+                        <Transition.Child
+                            as={Fragment}
+                            enter="ease-out duration-200"
+                            enterFrom="opacity-0 scale-95"
+                            enterTo="opacity-100 scale-100"
+                            leave="ease-in duration-200"
+                            leaveFrom="opacity-100 scale-100"
+                            leaveTo="opacity-0 scale-95"
+                        >
+                            <Dialog.Panel className="bg-white rounded-lg p-6 shadow-lg">
+                                <button onClick={() => setDuplicateModel(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                                    <IconX />
+                                </button>
+                                <div className="text-lg font-medium mb-4">Create Duplicate Campaign</div>
+                                <div>
+                                    <label htmlFor="campaignName" className="block text-sm font-medium text-gray-700">
+                                        Campaign Name
+                                    </label>
+                                    <input
+                                        id="campaignName"
+                                        type="text"
+                                        className="mt-1 block w-full border rounded p-2"
+                                        placeholder="Enter campaign name"
+                                        value={duplicateCampaignName}
+                                        onChange={(e) => setDuplicateCampaignName(e.target.value)}
+                                    />
+                                </div>
+                                <div className="mt-4 text-right">
+                                    <button
+                                        onClick={() => handleSaveDuplicateCampaign()}
+                                        className="bg-indigo-600 text-white rounded px-4 py-2 hover:bg-indigo-700"
+                                    >
+                                        Save
+                                    </button>
+                                </div>
+                            </Dialog.Panel>
+                        </Transition.Child>
                     </div>
                 </Dialog>
             </Transition>

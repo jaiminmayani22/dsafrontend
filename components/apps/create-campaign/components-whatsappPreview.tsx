@@ -2,8 +2,8 @@ import ImageWithLayers from './components-finalPreview';
 
 interface WhatsAppMessagePreviewProps {
     selectedTemplate: {
-        imageUrl: string; 
-    };
+        imageUrl: string;
+    } | String;
     selectedRefTemplate: {
         layers: Array<{
             type: string;
@@ -13,9 +13,9 @@ interface WhatsAppMessagePreviewProps {
 
 const WhatsAppMessagePreview: React.FC<WhatsAppMessagePreviewProps> = ({ selectedTemplate, selectedRefTemplate }) => {
     return (
-        <ImageWithLayers 
-            selectedTemplate={selectedTemplate} 
-            selectedRefTemplate={selectedRefTemplate} 
+        <ImageWithLayers
+            selectedTemplate={selectedTemplate}
+            selectedRefTemplate={selectedRefTemplate}
         />
     );
 };

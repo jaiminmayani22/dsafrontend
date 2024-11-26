@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 
-const SERVER = "http://localhost:8080/";
+// const SERVER = "http://localhost:8080/";
+// const SERVER = "https://dsaserver.onrender.com/";
+const SERVER = "https://newdsa.dsasilver.com/";
 // const SERVER = "http://172.20.10.5:8080/";
 
 if (!SERVER) {
@@ -22,7 +24,8 @@ const apis = {
     updateClientById: `${SERVER}user/updateClientById/`,
     deleteClientById: `${SERVER}user/deleteClientById/`,
     deleteClients: `${SERVER}user/deleteClients`,
-    clientProfilePictureUpdate: `${SERVER}user/updateClientProfile`,
+    updateClientProfile: `${SERVER}user/updateClientProfile`,
+    updateClientCompanyProfile: `${SERVER}user/updateClientCompanyProfile`,
     importContacts: `${SERVER}clientsImpExp/importClientFromCSV`,
     exportContacts: `${SERVER}clientsImpExp/exportClientToCSV`,
 
@@ -49,6 +52,7 @@ const apis = {
     getAllTemplateImages: `${SERVER}template/getAllTemplateImages`,
     getAllTemplateFormat: `${SERVER}template/getAllTemplateFormat`,
     getAllReferenceTemplateFormat: `${SERVER}template/getAllReferenceTemplateFormat`,
+    deleteRefTemplate: `${SERVER}template/deleteRefTemplate/`,
     getAllTemplates: `${SERVER}template/getAllTemplates`,
     createTemplate: `${SERVER}template/createTemplate`,
     deleteTemplate: `${SERVER}template/deleteTemplate`,
@@ -57,16 +61,21 @@ const apis = {
     //CAMPAIGN
     createCampaignMarketing: `${SERVER}campaign/createCampaignMarketing`,
     createCampaignUtility: `${SERVER}campaign/createCampaignUtility`,
+    duplicateCampaign: `${SERVER}campaign/duplicateCampaign/`,
+    createRetargetCampaign: `${SERVER}campaign/createRetargetCampaign`,
     sendMessage: `${SERVER}campaign/sendMessage`,
     getAllCampaigns: `${SERVER}campaign/getAllCampaigns`,
+    getCampaignById: `${SERVER}campaign/getCampaignById`,
+    getMessagesForCampaign: `${SERVER}campaign/getMessagesForCampaign`,
     deleteCampaign: `${SERVER}campaign/deleteCampaign`,
     campaignAudienceCount: `${SERVER}campaign/campaignAudienceCount`,
 
     //VARIABLES
     createVariable: `${SERVER}template/createVariable`,
     getAllVariables: `${SERVER}template/getAllVariables`,
-    getVariableById: `${SERVER}template/getVariableById`,
+    getVariableById: `${SERVER}template/getVariableById/`,
     deleteVariableById: `${SERVER}template/deleteVariableById`,
+    updateVariableById: `${SERVER}template/updateVariableById/`,
 };
 
 module.exports = apis;

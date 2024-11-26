@@ -44,15 +44,8 @@ const Sidebar = () => {
     const dispatch = useDispatch();
     const { t } = getTranslation();
     const pathname = usePathname();
-    const [currentMenu, setCurrentMenu] = useState<string>('');
-    const [errorSubMenu, setErrorSubMenu] = useState(false);
     const themeConfig = useSelector((state: IRootState) => state.themeConfig);
     const semidark = useSelector((state: IRootState) => state.themeConfig.semidark);
-    const toggleMenu = (value: string) => {
-        setCurrentMenu((oldValue) => {
-            return oldValue === value ? '' : value;
-        });
-    };
 
     useEffect(() => {
         const selector = document.querySelector('.sidebar ul a[href="' + window.location.pathname + '"]');
@@ -97,7 +90,6 @@ const Sidebar = () => {
                     <div className="flex items-center justify-between px-4 py-3">
                         <Link href="/" className="main-logo flex shrink-0 items-center">
                             <img className="ml-[5px] w-8 flex-none" src="/assets/images/firmlogo.bff360ebaabebe009e9a.png" alt="logo" />
-                            {/* <span className="align-middle text-2xl font-semibold ltr:ml-1.5 rtl:mr-1.5 dark:text-white-light lg:inline">DSA</span> */}
                         </Link>
 
                         <button
@@ -110,8 +102,8 @@ const Sidebar = () => {
                     </div>
                     <PerfectScrollbar className="relative h-[calc(100vh-80px)]">
                         <ul className="relative space-y-0.5 p-4 py-0 font-semibold">
-                            {/* <li className="menu nav-item">
-                                <button type="button" className={`${currentMenu === 'dashboard' ? 'active' : ''} nav-link group w-full`} onClick={() => toggleMenu('dashboard')}>
+                            {/* <li className="menu nav-item"> */}
+                                {/* <button type="button" className={`${currentMenu === 'dashboard' ? 'active' : ''} nav-link group w-full`} onClick={() => toggleMenu('dashboard')}>
                                     <div className="flex items-center">
                                         <IconMenuDashboard className="shrink-0 group-hover:!text-primary" />
                                         <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('dashboard')}</span>
@@ -137,8 +129,8 @@ const Sidebar = () => {
                                             <Link href="/crypto">{t('crypto')}</Link>
                                         </li>
                                     </ul>
-                                </AnimateHeight>
-                            </li> */}
+                                </AnimateHeight> */}
+                            {/* </li> */}
 
                             {/* PANEL PART */}
                             <li className="nav-item">
@@ -146,7 +138,7 @@ const Sidebar = () => {
                                     <li className="nav-item">
                                         <Link href="/apps/contacts" className="group">
                                             <div className="flex items-center">
-                                                <IconMenuContacts className="shrink-0 group-hover:!text-primary" />
+                                                <IconUsersGroup className="shrink-0 group-hover:!text-primary" />
                                                 <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('contacts')}</span>
                                             </div>
                                         </Link>
@@ -192,7 +184,7 @@ const Sidebar = () => {
                             <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
-                                        <Link href="/apps/send-message" className="group">
+                                        <Link href="/" className="group">
                                             <div className="flex items-center">
                                                 <IconListCheck className="shrink-0 group-hover:!text-primary" />
                                                 <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Campaign Reports')}</span>
@@ -204,7 +196,7 @@ const Sidebar = () => {
                             <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
-                                        <Link href="/apps/send-message" className="group">
+                                        <Link href="/" className="group">
                                             <div className="flex items-center">
                                                 <IconMenuChat className="shrink-0 group-hover:!text-primary" />
                                                 <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Chats')}</span>
@@ -216,7 +208,7 @@ const Sidebar = () => {
                             <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
-                                        <Link href="/apps/send-message" className="group">
+                                        <Link href="/" className="group">
                                             <div className="flex items-center">
                                                 <IconUser className="shrink-0 group-hover:!text-primary" />
                                                 <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Accounts')}</span>
@@ -228,7 +220,7 @@ const Sidebar = () => {
                             <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
-                                        <Link href="/apps/send-message" className="group">
+                                        <Link href="/" className="group">
                                             <div className="flex items-center">
                                                 <IconMenuAuthentication className="shrink-0 group-hover:!text-primary" />
                                                 <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Authentications')}</span>
@@ -240,7 +232,7 @@ const Sidebar = () => {
                             <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
-                                        <Link href="/apps/send-message" className="group">
+                                        <Link href="/" className="group">
                                             <div className="flex items-center">
                                                 <IconUsersGroup className="shrink-0 group-hover:!text-primary" />
                                                 <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Meta Profile')}</span>
@@ -252,7 +244,7 @@ const Sidebar = () => {
                             <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
-                                        <Link href="/apps/send-message" className="group">
+                                        <Link href="/" className="group">
                                             <div className="flex items-center">
                                                 <IconMenuInvoice className="shrink-0 group-hover:!text-primary" />
                                                 <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Billing Details')}</span>
@@ -264,7 +256,7 @@ const Sidebar = () => {
                             <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
-                                        <Link href="/credential/change-password" className="group">
+                                        <Link href="/apps/variables" className="group">
                                             <div className="flex items-center">
                                                 <IconMenu className="shrink-0 group-hover:!text-primary" />
                                                 <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Variable Master')}</span>

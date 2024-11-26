@@ -10,11 +10,16 @@ import React, { useEffect, useState } from 'react';
 import apis from '../../../public/apis';
 import IconRestore from '@/components/icon/icon-restore';
 import Swal from 'sweetalert2';
+import { useRouter } from 'next/navigation'
 
 const ComponentsAppsTrash = () => {
+    const router = useRouter();
+
     const [items, setItems] = useState<any>([]);
     const token = localStorage.getItem('authToken');
-
+    if (!token) {
+        router.push('/auth/boxed-signin');
+    }
     const [page, setPage] = useState<any>(1);
     const PAGE_SIZES = [10, 20, 30, 50, 100];
     const [pageSize, setPageSize] = useState<any>(PAGE_SIZES[0]);
@@ -41,10 +46,16 @@ const ComponentsAppsTrash = () => {
                         'Authorization': `Bearer ${token}`,
                     },
                 });
+                const data = await response.json();
+
+                if (response.status === 401 && data.message === "Token expired! Please login again") {
+                    showMessage(data.message, 'error');
+                    router.push('/auth/boxed-signin');
+                    throw new Error('Token expired');
+                }
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                const data = await response.json();
                 setItems(data.data);
                 const records = items.map((item: any) => ({
                     ...item,

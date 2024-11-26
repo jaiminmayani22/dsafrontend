@@ -22,23 +22,24 @@ const CustomEditor = ({ onChange, value }: CustomEditorProps) => {
 
     const modules = {
         toolbar: [
-            ['bold', 'italic', 'underline', 'strike'],
+            ['bold', 'italic', 'underline', 'strike'], // Formatting options
             ['clean'],
         ],
     };
 
-    const formats = [
-        'bold', 'italic', 'underline', 'strike',
-    ];
+    const formats = ['bold', 'italic', 'underline', 'strike'];
 
     const convertToWhatsAppFormat = (html: string) => {
         let text = html
-            .replace(/<strong>(.*?)<\/strong>/g, '*$1*')
-            .replace(/<em>(.*?)<\/em>/g, '_$1_')
-            .replace(/<u>(.*?)<\/u>/g, '_$1_')
-            .replace(/<strike>(.*?)<\/strike>/g, '~$1~');
-        text = text.replace(/<\/?[^>]+(>|$)/g, "");
-        return text;
+            .replace(/<strong>(.*?)<\/strong>/g, '*$1*') // Bold
+            .replace(/<em>(.*?)<\/em>/g, '_$1_')         // Italic
+            .replace(/<u>(.*?)<\/u>/g, '_$1_')           // Underline (treated as italic in WhatsApp)
+            .replace(/<strike>(.*?)<\/strike>/g, '~$1~') // Strikethrough
+            .replace(/<br\s*\/?>/g, '\n')                // Line breaks
+            .replace(/<p>(.*?)<\/p>/g, '$1\n')           // Paragraphs to new lines
+            .replace(/<\/?[^>]+(>|$)/g, '');             // Strip all other HTML tags
+
+        return text.trim();
     };
 
     return (

@@ -6,7 +6,8 @@ const nextConfig = {
         ignoreDuringBuilds: true,
     },
     trailingSlash: true,
-    output: 'export'
+    output: 'export',
+    useFileSystemPublicRoutes: false,
 };
 
 module.exports = nextConfig;

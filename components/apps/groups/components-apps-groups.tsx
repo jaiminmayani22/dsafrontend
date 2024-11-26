@@ -4,14 +4,13 @@
 import { DataTableSortStatus, DataTable } from 'mantine-datatable';
 import { FaStar, FaRegStar } from 'react-icons/fa';
 import { sortBy } from 'lodash';
-import Link from 'next/link';
 import { useSelector } from 'react-redux';
 import React, { Fragment, useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
+import { useRouter } from 'next/navigation'
 
 //COMPONENETS
 import IconSearch from '@/components/icon/icon-search';
-import IconUser from '@/components/icon/icon-user';
 import IconUserPlus from '@/components/icon/icon-user-plus';
 import IconSend from '@/components/icon/icon-send';
 import IconDownload from '@/components/icon/icon-download';
@@ -19,23 +18,25 @@ import IconX from '@/components/icon/icon-x';
 import Dropdown from '@/components/dropdown';
 import IconEdit from '@/components/icon/icon-edit';
 import IconEye from '@/components/icon/icon-eye';
-import IconPlus from '@/components/icon/icon-plus';
 import IconTrashLines from '@/components/icon/icon-trash-lines';
-import IconRefresh from '@/components/icon/icon-refresh';
 import IconHorizontalDots from '@/components/icon/icon-horizontal-dots';
 import { IRootState } from '@/store';
 import IconCaretDown from '@/components/icon/icon-caret-down';
 import { Transition, Dialog } from '@headlessui/react';
-import { Button } from '@mantine/core';
 import IconArrowBackward from '@/components/icon/icon-arrow-backward';
 
 //FILES
 import apis from '../../../public/apis';
 
 const PAGE_SIZES = [10, 20, 50];
-const token = localStorage.getItem('authToken');
 
 const ComponentsAppsGroups = () => {
+    const router = useRouter();
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        router.push('/auth/boxed-signin');
+    }
+
     const isRtl = useSelector((state: IRootState) => state.themeConfig.rtlClass) === 'rtl';
     const [selectedGroup, setSelectedGroup] = useState<any>(null);
     const [selectedGroups, setSelectedGroups] = useState<any>(null);
@@ -44,22 +45,21 @@ const ComponentsAppsGroups = () => {
     const [addGroupModal, setAddGroupModal] = useState<any>(false);
     const [addContactModal, setAddContactModal] = useState<any>(false);
     const [viewUserModal, setViewUserModal] = useState<any>(false);
-    const [inputValue, setInputValue] = useState<any>('');
-    const [selectedMembers, setSelectedMembers] = useState<any>('');
-    const [viewGroupModal, setViewGroupModal] = useState<any>(false);
     const [page, setPage] = useState<any>(1); // Current page
     const [pageSize, setPageSize] = useState<any>(PAGE_SIZES[0]); // Records per page
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus>({
         columnAccessor: 'name',
         direction: 'asc',
     });
-    const [selectedOptions, setSelectedOptions] = useState<any>([]);
     const [errors, setErrors] = useState<any>({});
-    const [groupNames, setGroupNames] = useState<any>([]);
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [isModalOpen, setIsModalOpen] = useState<any>(false);
     const [selectedImage, setSelectedImage] = useState<any>(null);
     const [selectedRecords, setSelectedRecords] = useState<any[]>([]);
+    const [isInvalidModalOpen, setIsInvalidModalOpen] = useState(false);
+    const [invalidEntries, setInvalidEntries] = useState<any[]>([]);
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [errorMessages, setErrorMessages] = useState({ mobile: '', whatsapp: '' });
 
     const [defaultParams] = useState<any>({
         _id: null,
@@ -94,24 +94,20 @@ const ComponentsAppsGroups = () => {
 
     const [params, setParams] = useState<any>(JSON.parse(JSON.stringify(defaultParams)));
     const [members, setMembers] = useState<any>([]);
-    const [memberParams, setMemberParams] = useState<any>(JSON.parse(JSON.stringify(defaultParamsMembers)));
 
     const changeValue = (e: any) => {
         const { value, id } = e.target;
         setParams({ ...params, [id]: value });
     };
 
-    const changeMemberValue = (e: any) => {
-        const { value, id } = e.target;
-        setParams({ ...members, [id]: value });
-    };
-
-    const [filteredItems, setFilteredItems] = useState<any>(groupList);
+    const [filteredItems, setFilteredItems] = useState<any>([]);
     const [search, setSearch] = useState<any>('');
-    const searchContact = () => {
+
+    const searchContact = (e: any) => {
+        const event = e.target.value;
         setFilteredItems(() => {
-            return groupList?.filter((item: any) => {
-                return item.name.toLowerCase().includes(search.toLowerCase());
+            return members?.filter((item: any) => {
+                return item.name.toLowerCase().includes(event.toLowerCase());
             });
         });
     };
@@ -128,10 +124,16 @@ const ComponentsAppsGroups = () => {
                     },
                     body: JSON.stringify(params),
                 });
+                const data = await response.json();
+
+                if (response.status === 401 && data.message === "Token expired! Please login again") {
+                    showMessage(data.message, 'error');
+                    router.push('/auth/boxed-signin');
+                    throw new Error('Token expired');
+                }
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                const data = await response.json();
                 setGroups(data);
                 setFilteredItems(data);
             } catch (error) {
@@ -166,9 +168,8 @@ const ComponentsAppsGroups = () => {
         };
 
         fetchMembers();
-    }, []);
+    }, [selectedGroup]);
 
-    //serach groups
     useEffect(() => {
         if (Array.isArray(groupList)) {
             setFilteredItems(groupList?.filter((item) =>
@@ -177,19 +178,16 @@ const ComponentsAppsGroups = () => {
         }
     }, [search, groupList]);
 
-    //set page size
     useEffect(() => {
         setPage(1);
     }, [pageSize]);
 
-    //page data set
     useEffect(() => {
         const from = (page - 1) * pageSize;
         const to = from + pageSize;
         setFilteredItems([...groupList.slice(from, to)]);
     }, [page, pageSize, groupList]);
 
-    //sorting
     useEffect(() => {
         const data2 = sortBy(filteredItems, sortStatus.columnAccessor);
         setFilteredItems(sortStatus.direction === 'desc' ? data2.reverse() : data2);
@@ -257,11 +255,9 @@ const ComponentsAppsGroups = () => {
     };
 
     const viewGroup = (groupId: any = null) => {
-        const group = filteredItems.find((u: any) => u.groupId === groupId);
         setFilteredItems([]);
         setSelectedGroup(groupId);
         handleGroupClick(groupId);
-        setViewGroupModal(true);
     };
 
     const deleteGroup = async (_id: any = null) => {
@@ -354,8 +350,8 @@ const ComponentsAppsGroups = () => {
 
             if (response.ok) {
                 const deletedId = await response.json();
-                setFilteredItems(filteredItems.filter((d: any) => d._id !== deletedId));
-                setMembers((filteredItems: any) => filteredItems.filter((contact: any) => contact._id !== deletedId));
+                setFilteredItems(filteredItems.filter((d: any) => d._id !== deletedId.data));
+                setMembers((filteredItems: any) => filteredItems.filter((contact: any) => contact._id !== deletedId.data));
                 showMessage('User has been deleted successfully.');
                 return true;
             } else {
@@ -401,9 +397,10 @@ const ComponentsAppsGroups = () => {
         input.type = 'file';
         input.accept = '.csv';
 
-        input.onchange = async (event: any) => {
-            const file = event.target?.files[0];
-            if (file) {
+        input.onchange = async (event) => {
+            const target = event.target as HTMLInputElement;
+            if (target.files && target.files.length > 0) {
+                const file = target.files[0];
                 const formData = new FormData();
                 formData.append('file', file);
 
@@ -422,16 +419,90 @@ const ComponentsAppsGroups = () => {
                     }
 
                     const result = await response.json();
-                    setFilteredItems([...result.data]);
-                    showMessage('Import successful');
+
+                    if (result.changes?.length > 0) {
+                        const invalidEntries = result.changes.filter((item: any) => item.action === 'invalid');
+                        if (invalidEntries.length > 0) {
+                            setInvalidEntries(invalidEntries);
+                            setIsInvalidModalOpen(true);
+                        } else {
+                            if (result.data?.length > 0) {
+                                setFilteredItems([...filteredItems, ...result.data]);
+                            }
+                            showMessage(result.message);
+                        }
+                    } else {
+                        if (result.data?.length > 0) {
+                            setFilteredItems([...filteredItems, ...result.data]);
+                        }
+                        showMessage(result.message);
+                    }
                 } catch (error) {
-                    console.error('Error importing contacts:', error);
-                    alert('Failed to import contacts. Please try again.');
+                    showMessage('Failed to import contacts. Please try again.', 'error');
                 }
             }
         };
-
         input.click();
+    };
+
+    const handleSaveInvalidNumbers = async () => {
+        const csvData = invalidEntries.map(entry => {
+            const { Name, Company_Name, Mobile_Number, Whatsapp_Number, Email, Address, City, District, Group_ID, Is_Favorite, FacebookID, InstagramID } = entry.client;
+            return [Name, Company_Name, Mobile_Number, Whatsapp_Number, Email, Address, City, District, Group_ID, Is_Favorite, FacebookID, InstagramID];
+        });
+
+        const headers = [
+            "Name", "Company_Name", "Mobile_Number", "Whatsapp_Number", "Email", "Address",
+            "City", "District", "Group_ID", "Is_Favorite", "FacebookID", "InstagramID"
+        ];
+
+        const csvContent = [
+            headers.join(','),
+            ...csvData.map(row => row.join(','))
+        ].join('\n');
+
+        const csvBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const csvFile = new File([csvBlob], "invalid_contacts.csv", { type: "text/csv" });
+        setIsInvalidModalOpen(false);
+        setInvalidEntries([]);
+        const formData = new FormData();
+        formData.append('file', csvFile);
+
+        try {
+            const response = await fetch(apis.importContacts, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                showMessage('Failed to re-import invalid entries', 'error');
+                throw new Error('Failed to re-import invalid entries');
+            }
+
+            const result = await response.json();
+
+            const newInvalidEntries = result.changes?.filter((item: any) => item.action === 'invalid');
+            if (newInvalidEntries?.length > 0) {
+                setInvalidEntries(newInvalidEntries);
+                setIsInvalidModalOpen(true);
+            } else {
+                if (result.data?.length > 0) {
+                    setFilteredItems([...filteredItems, ...result.data]);
+                }
+                showMessage(result.message);
+                setIsInvalidModalOpen(false);
+                setInvalidEntries([]);
+            }
+        } catch (error) {
+            showMessage('Failed to re-import invalid entries. Please try again.', 'error');
+        }
+    };
+
+    const closeInvalidModal = () => {
+        setIsInvalidModalOpen(false);
     };
 
     const deleteContacts = async () => {
@@ -447,7 +518,8 @@ const ComponentsAppsGroups = () => {
 
             if (response.ok) {
                 const deletedIds = await response.json();
-                setMembers((filteredItems: any) => filteredItems.filter((contact: any) => !deletedIds.includes(contact._id)));
+                setFilteredItems((filteredItems: any) => filteredItems.filter((contact: any) => !deletedIds.includes(contact._id)));
+                setMembers(filteredItems);
                 setSelectedRecords([]);
             } else {
                 console.error('Failed to delete contacts:', response.statusText);
@@ -462,8 +534,8 @@ const ComponentsAppsGroups = () => {
         return emailRegex.test(email);
     };
 
-    const validateMobileNumber = (number: any) => {
-        const mobileRegex = /^\d{10}$/;
+    const validateMobileNumber = (number: string): boolean => {
+        const mobileRegex = /^\+?[1-9]\d{1,3}?\d{10}$/;
         return mobileRegex.test(number);
     };
 
@@ -513,6 +585,17 @@ const ComponentsAppsGroups = () => {
 
                     if (response.ok) {
                         let user = filteredItems.find((d: any) => d._id === params._id);
+                        setFilteredItems((prevItems: any) => {
+                            return prevItems.map((item: any) => {
+                                if (item._id === params._id) {
+                                    return {
+                                        ...item,
+                                        ...data.data,
+                                    };
+                                }
+                                return item;
+                            });
+                        });
                         Object.assign(user, params);
                         showMessage('User has been updated successfully.');
                     } else {
@@ -553,17 +636,85 @@ const ComponentsAppsGroups = () => {
         }
     };
 
-    const handleProfilePicture = (event: any) => {
-        const file = event.target?.files[0];
+    const handleProfilePicture = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target?.files?.[0];
         if (file) {
-            setParams({ ...params, profile_picture: file });
+            if (params._id) {
+                const whatsapp_number = String(params.whatsapp_number).trim().replace('+', '');
+
+                const formData = new FormData();
+                formData.append("profile_picture", file);
+                formData.append("_id", params._id);
+
+                const response = await fetch(`${apis.updateClientProfile}?whatsapp_number=${whatsapp_number}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: formData,
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    showMessage("Profile Picture Upload Failed, Please select again", 'error')
+                }
+                setFilteredItems((prevItems: any) => {
+                    return prevItems.map((item: any) => {
+                        if (item._id === params._id) {
+                            return {
+                                ...item,
+                                ...data.data,
+                            };
+                        }
+                        return item;
+                    });
+                });
+                showMessage(data.message);
+            } else {
+                setParams({ ...params, profile_picture: file });
+            }
+        } else {
+            showMessage('No file selected. Please choose a file.', 'error');
         }
     };
 
-    const handleCompanyProfilePicture = (e: any) => {
-        const file = e.target?.files[0];
+    const handleCompanyProfilePicture = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target?.files?.[0];
         if (file) {
-            setParams({ ...params, company_profile_picture: file });
+            if (params._id) {
+                const whatsapp_number = String(params.whatsapp_number).trim().replace('+', '');
+
+                const formData = new FormData();
+                formData.append("company_profile_picture", file);
+                formData.append("_id", params._id);
+
+                const response = await fetch(`${apis.updateClientCompanyProfile}?whatsapp_number=${whatsapp_number}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: formData,
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    showMessage("Company Profile Picture Upload Failed, Please select again", 'error')
+                }
+                setFilteredItems((prevItems: any) => {
+                    return prevItems.map((item: any) => {
+                        if (item._id === params._id) {
+                            return {
+                                ...item,
+                                ...data.data,
+                            };
+                        }
+                        return item;
+                    });
+                });
+                showMessage(data.message);
+            } else {
+                setParams({ ...params, company_profile_picture: file });
+            }
+        } else {
+            showMessage('No file selected. Please choose a file.', 'error');
         }
     };
 
@@ -630,6 +781,34 @@ const ComponentsAppsGroups = () => {
         }
     };
     const isAllSelected = selectedRecords.length === filteredItems.length && filteredItems.length > 0;
+
+    const isButtonDisabled = !(
+        invalidEntries[currentIndex]?.client.Whatsapp_Number?.length === 10 &&
+        (!invalidEntries[currentIndex]?.client.Mobile_Number ||
+            invalidEntries[currentIndex]?.client.Mobile_Number.length === 10)
+    );
+
+    const handleInputChange = (e: any, field: any) => {
+        const newInvalidEntries = [...invalidEntries];
+        const value = e.target.value;
+
+        if (/^\d{0,10}$/.test(value)) {
+            if (field === 'mobile') {
+                newInvalidEntries[currentIndex].client.Mobile_Number = value;
+                setErrorMessages((prev) => ({
+                    ...prev,
+                    mobile: value && value.length !== 10 ? 'Mobile Number must be 10 digits' : '',
+                }));
+            } else if (field === 'whatsapp') {
+                newInvalidEntries[currentIndex].client.Whatsapp_Number = value;
+                setErrorMessages((prev) => ({
+                    ...prev,
+                    whatsapp: value.length === 10 ? '' : 'WhatsApp Number must be 10 digits',
+                }));
+            }
+            setInvalidEntries(newInvalidEntries);
+        }
+    };
 
     /*OVER CLIENT */
     return (
@@ -727,21 +906,39 @@ const ComponentsAppsGroups = () => {
 
                 {/* Right Side: Search and Additional Dropdown */}
                 <div className="flex items-center gap-2 ml-auto">
-                    <div className="relative sm:w-auto w-full max-w-xs">
-                        <input
-                            type="text"
-                            placeholder="Search..."
-                            className="peer form-input py-2 ltr:pr-11 rtl:pl-11 w-full"
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                        />
-                        <button
-                            type="button"
-                            className="absolute top-1/2 -translate-y-1/2 peer-focus:text-primary ltr:right-[11px] rtl:left-[11px]"
-                        >
-                            <IconSearch className="mx-auto" />
-                        </button>
-                    </div>
+                    {selectedGroup?.length > 0 ? (
+                        <div className="relative sm:w-auto w-full max-w-xs">
+                            <input
+                                type="text"
+                                placeholder="Search..."
+                                className="peer form-input py-2 ltr:pr-11 rtl:pl-11 w-full"
+                                value={search}
+                                onChange={(e) => searchContact(e)}
+                            />
+                            <button
+                                type="button"
+                                className="absolute top-1/2 -translate-y-1/2 peer-focus:text-primary ltr:right-[11px] rtl:left-[11px]"
+                            >
+                                <IconSearch className="mx-auto" />
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="relative sm:w-auto w-full max-w-xs">
+                            <input
+                                type="text"
+                                placeholder="Search..."
+                                className="peer form-input py-2 ltr:pr-11 rtl:pl-11 w-full"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                            />
+                            <button
+                                type="button"
+                                className="absolute top-1/2 -translate-y-1/2 peer-focus:text-primary ltr:right-[11px] rtl:left-[11px]"
+                            >
+                                <IconSearch className="mx-auto" />
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -861,9 +1058,10 @@ const ComponentsAppsGroups = () => {
                                 },
                                 {
                                     accessor: 'company_profile_picture',
+                                    title: 'Logo',
                                     sortable: true,
                                     render: (record) => {
-                                        const { _id, company_profile_picture } = record as { _id: any; company_profile_picture: { url?: string } };
+                                        const { company_profile_picture } = record as { company_profile_picture: { url?: string } };
                                         return company_profile_picture?.url ? (
                                             <div className="flex items-center font-semibold">
                                                 <div className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2" onClick={() => openModal(company_profile_picture.url)}>
@@ -1297,6 +1495,74 @@ const ComponentsAppsGroups = () => {
                         >
                             &times;
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {isInvalidModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+                    <div className="relative bg-white p-4 rounded">
+                        <h2 className="text-xl mb-4">Invalid Entries</h2>
+
+                        <div className="mb-4">
+                            <div className="mb-2">
+                                <strong>Name : {invalidEntries[currentIndex]?.client.Name}</strong>
+                                <br />
+                                <strong>Correction :</strong> <p>{invalidEntries[currentIndex]?.reason}</p>
+                            </div>
+                            <div className="flex flex-col mb-2">
+                                <label className="font-semibold">Mobile Number:</label>
+                                <input
+                                    type="text"
+                                    value={invalidEntries[currentIndex ? currentIndex : 0]?.client.Mobile_Number}
+                                    onChange={(e) => handleInputChange(e, 'mobile')}
+                                    pattern="\d*"
+                                    maxLength={10}
+                                    className="border p-2"
+                                />
+                                {errorMessages.mobile && (
+                                    <span className="text-red-500 text-sm">{errorMessages.mobile}</span>
+                                )}
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="font-semibold">WhatsApp Number:</label>
+                                <input
+                                    type="text"
+                                    value={invalidEntries[currentIndex ? currentIndex : 0]?.client.Whatsapp_Number}
+                                    onChange={(e) => handleInputChange(e, 'whatsapp')}
+                                    pattern="\d*"
+                                    maxLength={10}
+                                    className="border p-2"
+                                />
+                                {errorMessages.whatsapp && (
+                                    <span className="text-red-500 text-sm">{errorMessages.whatsapp}</span>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="mt-4 flex justify-between">
+                            <button
+                                onClick={closeInvalidModal}
+                                className="bg-gray-500 text-white px-4 py-2 rounded"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const newIndex = currentIndex + 1;
+                                    if (newIndex < invalidEntries.length) {
+                                        setCurrentIndex(newIndex);
+                                    } else {
+                                        handleSaveInvalidNumbers();
+                                        setIsInvalidModalOpen(false);
+                                    }
+                                }}
+                                className={`bg-blue-500 text-white px-4 py-2 rounded ${isButtonDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                disabled={isButtonDisabled}
+                            >
+                                {currentIndex < invalidEntries.length - 1 ? 'Next' : 'Save'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

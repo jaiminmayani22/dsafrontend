@@ -5,12 +5,12 @@ import { DataTableSortStatus, DataTable } from 'mantine-datatable';
 import { FaStar, FaRegStar } from 'react-icons/fa';
 import { sortBy } from 'lodash';
 import Select, { MultiValue } from 'react-select';
-import Link from 'next/link';
 import { IRootState } from '@/store';
 import { Transition, Dialog } from '@headlessui/react';
 import { useSelector } from 'react-redux';
 import React, { Fragment, useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
+import { useRouter } from 'next/navigation'
 
 //COMPONENTS
 import IconSearch from '@/components/icon/icon-search';
@@ -28,33 +28,15 @@ import IconCaretDown from '@/components/icon/icon-caret-down';
 
 //FILES
 import apis from '../../../public/apis';
+import router from 'next/router';
 
 const ComponentsAppsContacts = () => {
+    const router = useRouter();
     const isRtl = useSelector((state: IRootState) => state.themeConfig.rtlClass) === 'rtl';
     const token = localStorage.getItem('authToken');
-
-    //VERIFY TOKEN
-    // useEffect(() => {
-    //     const verifyToken = async () => {
-    //         try {
-    //             const response = await fetch(apis.verifyToken, {
-    //                 method: 'POST',
-    //                 headers: {
-    //                     'Content-Type': 'application/json',
-    //                     'Authorization': `Bearer ${token}`,
-    //                 },
-    //             });
-    //             const data = await response.json();
-    //             if (!response.ok) {
-    //                 throw new Error(`HTTP error! status: ${response.status}`);
-    //             }
-    //         } catch (error) {
-    //             console.error('Error fetching contacts:', error);
-    //         }
-    //     };
-
-    //     verifyToken();
-    // }, []);
+    if (!token) {
+        router.push('/auth/boxed-signin');
+    }
 
     const PAGE_SIZES = [10, 20, 30, 50, 100];
 
@@ -72,6 +54,8 @@ const ComponentsAppsContacts = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedImage, setSelectedImage] = useState<any>(null);
     const [selectedRecords, setSelectedRecords] = useState<any[]>([]);
+    const [isInvalidModalOpen, setIsInvalidModalOpen] = useState(false);
+    const [errorMessages, setErrorMessages] = useState({ mobile: '', whatsapp: '' });
 
     const [defaultParams] = useState({
         _id: null,
@@ -133,8 +117,10 @@ const ComponentsAppsContacts = () => {
 
     const [contactList, setContacts] = useState<Contact[]>([]);
     const [filteredItems, setFilteredItems] = useState<Contact[]>(contactList);
+    const [invalidEntries, setInvalidEntries] = useState<any[]>([]);
     const [contactCount, setContactCount] = useState<any>();
     const [search, setSearch] = useState<any>('');
+    const [currentIndex, setCurrentIndex] = useState(0);
 
     //fetch contacts
     useEffect(() => {
@@ -149,6 +135,13 @@ const ComponentsAppsContacts = () => {
                     body: JSON.stringify(params),
                 });
                 const data = await response.json();
+
+                if (response.status === 401 && data.message === "Token expired! Please login again") {
+                    showMessage(data.message, 'error');
+                    router.push('/auth/boxed-signin');
+                    throw new Error('Token expired');
+                }
+
                 if (!response.ok) {
                     showMessage(data.message, 'error');
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -173,7 +166,9 @@ const ComponentsAppsContacts = () => {
                     item.groupName?.toLowerCase().includes(search.toLowerCase()) ||
                     item.city?.toLowerCase().includes(search.toLowerCase()) ||
                     item.district?.toLowerCase().includes(search.toLowerCase()) ||
-                    item.address?.toLowerCase().includes(search.toLowerCase())
+                    item.address?.toLowerCase().includes(search.toLowerCase()) ||
+                    item.whatsapp_number?.includes(search) ||
+                    item.mobile_number?.includes(search)
                 )
             );
         }
@@ -223,13 +218,6 @@ const ComponentsAppsContacts = () => {
         setPage(1);
     }, [sortStatus]);
 
-    interface UserParams {
-        name: string;
-        email: string;
-        whatsapp_number: string;
-        mobile_number?: string;
-    }
-
     const saveUser = async (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
         const newErrors: { [key: string]: string } = {};
@@ -251,8 +239,8 @@ const ComponentsAppsContacts = () => {
 
         if (!validateMobileNumber(params.whatsapp_number)) {
             newErrors.whatsapp_number = 'Whatsapp number must be exactly 10 digits.';
-            showMessage('Mobile number must be exactly 10 digits.', 'error');
-        }
+            showMessage('Whatsapp number must be exactly 10 digits.', 'error');
+        }        
 
         if ((!validateMobileNumber(params.mobile_number)) && (params.mobile_number !== "")) {
             newErrors.mobile_number = 'Mobile number must be exactly 10 digits.';
@@ -262,7 +250,6 @@ const ComponentsAppsContacts = () => {
         if (Object.keys(newErrors).length === 0) {
             try {
                 if (params._id) {
-                    //update user
                     const response = await fetch(`${apis.updateClientById}${params._id}`, {
                         method: 'PUT',
                         headers: {
@@ -273,11 +260,21 @@ const ComponentsAppsContacts = () => {
                     });
 
                     const data = await response.json();
-
                     if (response.ok) {
                         let user = filteredItems.find((d: Contact) => d._id === params._id);
                         if (user) {
                             Object.assign(user, params);
+                            setFilteredItems((prevItems: any) => {
+                                return prevItems.map((item: any) => {
+                                    if (item._id === params._id) {
+                                        return {
+                                            ...item,
+                                            ...data.data,
+                                        };
+                                    }
+                                    return item;
+                                });
+                            });
                             showMessage('User has been updated successfully.');
                         } else {
                             showMessage('User not found.', 'error');
@@ -285,7 +282,6 @@ const ComponentsAppsContacts = () => {
                     } else {
                         showMessage(`Failed to update user: ${data.message}`, 'error');
                     }
-
                 } else {
                     const formData = new FormData();
                     for (const key in params) {
@@ -351,8 +347,8 @@ const ComponentsAppsContacts = () => {
 
             if (response.ok) {
                 const deletedId = await response.json();
-                setFilteredItems(filteredItems.filter((d: any) => d._id !== deletedId));
-                setContacts(filteredItems => filteredItems.filter(contact => contact._id !== deletedId));
+                setFilteredItems(filteredItems.filter((d: any) => d._id !== deletedId.data));
+                setContacts(filteredItems);
                 showMessage('User has been deleted successfully.');
                 return true;
             } else {
@@ -392,7 +388,6 @@ const ComponentsAppsContacts = () => {
         }
     };
 
-    // Function to import contacts
     const importContacts = () => {
         const input = document.createElement('input');
         input.type = 'file';
@@ -413,24 +408,94 @@ const ComponentsAppsContacts = () => {
                         },
                         body: formData,
                     });
+                    const result = await response.json();
 
                     if (!response.ok) {
-                        showMessage('Failed to import contacts', 'error')
-                        throw new Error('Failed to import contacts');
+                        showMessage(result.message, 'error')
                     }
-
-                    const result = await response.json();
-                    setFilteredItems([...result.data]);
-                    showMessage('Import successful');
+                    if (result.changes?.length > 0) {
+                        const invalidEntries = result.changes.filter((item: any) => item.action === 'invalid');
+                        if (invalidEntries.length > 0) {
+                            setInvalidEntries(invalidEntries);
+                            setIsInvalidModalOpen(true);
+                        } else {
+                            if (result.data?.length > 0) {
+                                setFilteredItems([...filteredItems, ...result.data]);
+                            }
+                            showMessage(result.message);
+                        }
+                    } else {
+                        if (result.data?.length > 0) {
+                            setFilteredItems([...filteredItems, ...result.data]);
+                        }
+                        showMessage(result.message);
+                    }
                 } catch (error) {
-                    console.error('Error importing contacts:', error);
-                    alert('Failed to import contacts. Please try again.');
+                    showMessage('Failed to import contacts. Please try again.', 'error');
                 }
             }
         };
-
-        // Trigger file input
         input.click();
+    };
+
+    const handleSaveInvalidNumbers = async () => {
+        const csvData = invalidEntries.map(entry => {
+            const { Name, Company_Name, Mobile_Number, Whatsapp_Number, Email, Address, City, District, Group_ID, Is_Favorite, FacebookID, InstagramID } = entry.client;
+            return [Name, Company_Name, Mobile_Number, Whatsapp_Number, Email, Address, City, District, Group_ID, Is_Favorite, FacebookID, InstagramID];
+        });
+
+        const headers = [
+            "Name", "Company_Name", "Mobile_Number", "Whatsapp_Number", "Email", "Address",
+            "City", "District", "Group_ID", "Is_Favorite", "FacebookID", "InstagramID"
+        ];
+
+        const csvContent = [
+            headers.join(','),
+            ...csvData.map(row => row.join(','))
+        ].join('\n');
+
+        const csvBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const csvFile = new File([csvBlob], "invalid_contacts.csv", { type: "text/csv" });
+        setIsInvalidModalOpen(false);
+        setInvalidEntries([]);
+        const formData = new FormData();
+        formData.append('file', csvFile);
+
+        try {
+            const response = await fetch(apis.importContacts, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                showMessage('Failed to re-import invalid entries', 'error');
+                throw new Error('Failed to re-import invalid entries');
+            }
+
+            const result = await response.json();
+
+            const newInvalidEntries = result.changes?.filter((item: any) => item.action === 'invalid');
+            if (newInvalidEntries?.length > 0) {
+                setInvalidEntries(newInvalidEntries);
+                setIsInvalidModalOpen(true);
+            } else {
+                if (result.data?.length > 0) {
+                    setFilteredItems([...filteredItems, ...result.data]);
+                }
+                showMessage(result.message);
+                setIsInvalidModalOpen(false);
+                setInvalidEntries([]);
+            }
+        } catch (error) {
+            showMessage('Failed to re-import invalid entries. Please try again.', 'error');
+        }
+    };
+
+    const closeInvalidModal = () => {
+        setIsInvalidModalOpen(false);
     };
 
     const importProfileImages = () => {
@@ -450,7 +515,6 @@ const ComponentsAppsContacts = () => {
                 });
 
                 try {
-                    console.log("FormData : ", formData);
                     const response = await fetch(apis.multiProfilePics, {
                         method: 'POST',
                         headers: {
@@ -459,20 +523,23 @@ const ComponentsAppsContacts = () => {
                         body: formData,
                     });
 
-                    if (!response.ok) {
-                        showMessage('Failed to upload images', 'error');
-                        throw new Error('Failed to upload images');
-                    }
-
                     const result = await response.json();
-                    const updatedItems: Contact[] = result.results;
+                    if (!response.ok) {
+                        showMessage(result.message);
+                    } else {
+                        setFilteredItems((prevItems) => {
+                            const updatedItemsMap = new Map(
+                                result.results.map((item: any) => [String(item.whatsapp_number).trim(), item])
+                            );
+                            return prevItems.map((item: any) => {
+                                const normalizedWhatsApp = String(item.whatsapp_number).trim();
+                                const updatedItem = updatedItemsMap.get(normalizedWhatsApp);
 
-                    const mergedItems = filteredItems.map(item => {
-                        const updatedItem = updatedItems.find((updated: Contact) => updated.mobile_number === item.mobile_number);
-                        return updatedItem ? updatedItem : item;
-                    });
-                    setFilteredItems([...mergedItems]);
-                    showMessage('Images uploaded successfully');
+                                return updatedItem ? { ...item, ...updatedItem } : item;
+                            });
+                        });
+                        showMessage(result.message);
+                    }
                 } catch (error: unknown) {
                     if (error instanceof Error) {
                         alert(`Failed to upload images: ${error.message}. Please try again.`);
@@ -491,8 +558,8 @@ const ComponentsAppsContacts = () => {
     const importCompanyProfileImages = () => {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = 'image/*'; // Accept only images
-        input.multiple = true;    // Allow selecting multiple files
+        input.accept = 'image/*';
+        input.multiple = true;
 
         input.onchange = async (event) => {
             const target = event.target as HTMLInputElement | null;
@@ -501,7 +568,7 @@ const ComponentsAppsContacts = () => {
             if (files && files.length > 0) {
                 const formData = new FormData();
                 Array.from(files).forEach((file) => {
-                    formData.append('profile_picture', file);
+                    formData.append('company_profile_picture', file);
                 });
                 try {
                     const response = await fetch(apis.multiCompanyProfilePics, {
@@ -511,21 +578,25 @@ const ComponentsAppsContacts = () => {
                         },
                         body: formData,
                     });
-                    if (!response.ok) {
-                        showMessage('Failed to upload images', 'error');
-                        throw new Error('Failed to upload images');
-                    }
 
                     const result = await response.json();
-                    const updatedItems: Contact[] = result.results;
-                    const mergedItems = filteredItems.map(item => {
-                        const updatedItem = updatedItems.find((updated: Contact) => updated.mobile_number === item.mobile_number);
-                        return updatedItem ? updatedItem : item;
-                    });
-                    setFilteredItems([...mergedItems]);
-                    showMessage('Images uploaded successfully');
+                    if (!response.ok) {
+                        showMessage(result.message);
+                    } else {
+                        setFilteredItems((prevItems) => {
+                            const updatedItemsMap = new Map(
+                                result.results.map((item: any) => [String(item.whatsapp_number).trim(), item])
+                            );
+                            return prevItems.map((item: any) => {
+                                const normalizedWhatsApp = String(item.whatsapp_number).trim();
+                                const updatedItem = updatedItemsMap.get(normalizedWhatsApp);
+
+                                return updatedItem ? { ...item, ...updatedItem } : item;
+                            });
+                        });
+                        showMessage("Company" + result.message);
+                    }
                 } catch (error) {
-                    console.error('Error uploading images:', error);
                     alert('Failed to upload images. Please try again.');
                 }
             } else {
@@ -549,7 +620,8 @@ const ComponentsAppsContacts = () => {
 
             if (response.ok) {
                 const deletedIds = await response.json();
-                setContacts(filteredItems => filteredItems.filter(contact => !deletedIds.includes(contact._id)));
+                setFilteredItems(filteredItems => filteredItems.filter(contact => !deletedIds.includes(contact._id)));
+                setContacts(filteredItems);
                 setSelectedRecords([]);
             } else {
                 console.error('Failed to delete contacts:', response.statusText);
@@ -574,20 +646,83 @@ const ComponentsAppsContacts = () => {
         });
     };
 
-    const handleProfilePicture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleProfilePicture = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target?.files?.[0];
         if (file) {
-            setParams({ ...params, profile_picture: file });
+            if (params._id) {
+                const whatsapp_number = String(params.whatsapp_number).trim().replace('+', '');
+
+                const formData = new FormData();
+                formData.append("profile_picture", file);
+                formData.append("_id", params._id);
+
+                const response = await fetch(`${apis.updateClientProfile}?whatsapp_number=${whatsapp_number}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: formData,
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    showMessage("Profile Picture Upload Failed, Please select again", 'error')
+                }
+                setFilteredItems((prevItems) => {
+                    return prevItems.map((item) => {
+                        if (item._id === params._id) {
+                            return {
+                                ...item,
+                                ...data.data,
+                            };
+                        }
+                        return item;
+                    });
+                });
+                showMessage(data.message);
+            } else {
+                setParams({ ...params, profile_picture: file });
+            }
         } else {
             showMessage('No file selected. Please choose a file.', 'error');
         }
     };
 
-
-    const handleCompanyProfilePicture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleCompanyProfilePicture = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target?.files?.[0];
         if (file) {
-            setParams({ ...params, company_profile_picture: file });
+            if (params._id) {
+                const whatsapp_number = String(params.whatsapp_number).trim().replace('+', '');
+
+                const formData = new FormData();
+                formData.append("company_profile_picture", file);
+                formData.append("_id", params._id);
+
+                const response = await fetch(`${apis.updateClientCompanyProfile}?whatsapp_number=${whatsapp_number}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: formData,
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    showMessage("Company Profile Picture Upload Failed, Please select again", 'error')
+                }
+                setFilteredItems((prevItems) => {
+                    return prevItems.map((item) => {
+                        if (item._id === params._id) {
+                            return {
+                                ...item,
+                                ...data.data,
+                            };
+                        }
+                        return item;
+                    });
+                });
+                showMessage(data.message);
+            } else {
+                setParams({ ...params, company_profile_picture: file });
+            }
         } else {
             showMessage('No file selected. Please choose a file.', 'error');
         }
@@ -595,7 +730,7 @@ const ComponentsAppsContacts = () => {
 
     const refreshContacts = async () => {
         try {
-            const response = await fetch(apis.getAllClientCount, {
+            const response = await fetch(apis.getAllClient, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -603,10 +738,11 @@ const ComponentsAppsContacts = () => {
                 },
             });
             const data = await response.json();
-            console.log("Refresh : " + data.totalRecords);
 
             if (response.ok) {
+                setFilteredItems([...data.data]);
                 setContactCount(data.totalRecords);
+                setSearch('');
             } else {
                 console.error('Failed to fetch client count:', data.message);
             }
@@ -648,13 +784,13 @@ const ComponentsAppsContacts = () => {
     };
 
     const validateMobileNumber = (number: string): boolean => {
-        const mobileRegex = /^\d{10}$/;
+        const mobileRegex = /^(\+?\d{1,3})?(\d{10})$/;
         return mobileRegex.test(number);
-    };
+    };    
 
     const downloadCSV = () => {
         const link = document.createElement('a');
-        link.href = '../../../public/templateCSV.csv';
+        link.href = `${window.location.origin}/template.csv`;
         link.download = 'template.csv';
         document.body.appendChild(link);
         link.click();
@@ -717,6 +853,34 @@ const ComponentsAppsContacts = () => {
 
     const selectedGroupIds = params.groupId ? params.groupId.split(', ') : [];
 
+    const handleInputChange = (e: any, field: any) => {
+        const newInvalidEntries = [...invalidEntries];
+        const value = e.target.value;
+
+        if (/^\d{0,10}$/.test(value)) {
+            if (field === 'mobile') {
+                newInvalidEntries[currentIndex].client.Mobile_Number = value;
+                setErrorMessages((prev) => ({
+                    ...prev,
+                    mobile: value && value.length !== 10 ? 'Mobile Number must be 10 digits' : '',
+                }));
+            } else if (field === 'whatsapp') {
+                newInvalidEntries[currentIndex].client.Whatsapp_Number = value;
+                setErrorMessages((prev) => ({
+                    ...prev,
+                    whatsapp: value.length === 10 ? '' : 'WhatsApp Number must be 10 digits',
+                }));
+            }
+            setInvalidEntries(newInvalidEntries);
+        }
+    };
+
+    const isButtonDisabled = !(
+        invalidEntries[currentIndex]?.client.Whatsapp_Number?.length === 10 &&
+        (!invalidEntries[currentIndex]?.client.Mobile_Number ||
+            invalidEntries[currentIndex]?.client.Mobile_Number.length === 10)
+    );
+
     return (
         <div>
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -767,19 +931,19 @@ const ComponentsAppsContacts = () => {
                         >
                             <ul className="!min-w-[170px]">
                                 <li>
-                                    <button type="button" onClick={importContacts}>Import Contacts</button>
+                                    <button type="button" onClick={() => importContacts()}>Import Contacts</button>
                                 </li>
                                 <li>
-                                    <button type="button" onClick={importProfileImages}>Import Profile Images</button>
+                                    <button type="button" onClick={() => importProfileImages()}>Import Profile Images</button>
                                 </li>
                                 <li>
-                                    <button type="button" onClick={importCompanyProfileImages}>Import Comapany Profile Images</button>
+                                    <button type="button" onClick={() => importCompanyProfileImages()}>Import Comapany Profile Images</button>
                                 </li>
                             </ul>
                         </Dropdown>
                     </div>
                     {selectedRecords.length > 0 && (
-                        <button type="button" className="btn btn-danger gap-2" onClick={deleteContacts}>
+                        <button type="button" className="btn btn-danger gap-2" onClick={() => deleteContacts()}>
                             <IconTrashLines />
                             Delete selected contacts ({selectedRecords.length})
                         </button>
@@ -880,6 +1044,7 @@ const ComponentsAppsContacts = () => {
                             ),
                         },
                         {
+                            title: 'Logo',
                             accessor: 'company_profile_picture',
                             sortable: true,
                             render: ({ company_profile_picture }) => (
@@ -1206,6 +1371,9 @@ const ComponentsAppsContacts = () => {
                                                     className="form-input file:rounded-md file:border-0 file:bg-primary file:text-white file:px-4 file:py-2 hover:file:bg-primary-dark"
                                                     onChange={(event) => handleProfilePicture(event)}
                                                 />
+                                                {params.profile_picture?.originalname && (
+                                                    <p className="mt-2 text-sm text-gray-600">Selected Image: {params.profile_picture.filename}</p>
+                                                )}
                                             </div>
 
                                             <div className="mb-5">
@@ -1219,6 +1387,9 @@ const ComponentsAppsContacts = () => {
                                                     className="form-input file:rounded-md file:border-0 file:bg-primary file:text-white file:px-4 file:py-2 hover:file:bg-primary-dark"
                                                     onChange={(e) => handleCompanyProfilePicture(e)}
                                                 />
+                                                {params.company_profile_picture?.originalname && (
+                                                    <p className="mt-2 text-sm text-gray-600">Selected Image: {params.company_profile_picture.filename}</p>
+                                                )}
                                             </div>
 
                                             {/* Buttons */}
@@ -1371,10 +1542,78 @@ const ComponentsAppsContacts = () => {
                         {/* Close button */}
                         <button
                             className="absolute top-2 right-2 text-white bg-black p-2 rounded-full"
-                            onClick={closeModal}
+                            onClick={() => closeModal()}
                         >
                             &times;
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {isInvalidModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
+                    <div className="relative bg-white p-4 rounded">
+                        <h2 className="text-xl mb-4">Invalid Entries</h2>
+
+                        <div className="mb-4">
+                            <div className="mb-2">
+                                <strong>Name : {invalidEntries[currentIndex]?.client.Name}</strong>
+                                <br />
+                                <strong>Correction :</strong> <p>{invalidEntries[currentIndex]?.reason}</p>
+                            </div>
+                            <div className="flex flex-col mb-2">
+                                <label className="font-semibold">Mobile Number:</label>
+                                <input
+                                    type="text"
+                                    value={invalidEntries[currentIndex ? currentIndex : 0]?.client.Mobile_Number}
+                                    onChange={(e) => handleInputChange(e, 'mobile')}
+                                    pattern="\d*"
+                                    maxLength={10}
+                                    className="border p-2"
+                                />
+                                {errorMessages.mobile && (
+                                    <span className="text-red-500 text-sm">{errorMessages.mobile}</span>
+                                )}
+                            </div>
+                            <div className="flex flex-col">
+                                <label className="font-semibold">WhatsApp Number:</label>
+                                <input
+                                    type="text"
+                                    value={invalidEntries[currentIndex ? currentIndex : 0]?.client.Whatsapp_Number}
+                                    onChange={(e) => handleInputChange(e, 'whatsapp')}
+                                    pattern="\d*"
+                                    maxLength={10}
+                                    className="border p-2"
+                                />
+                                {errorMessages.whatsapp && (
+                                    <span className="text-red-500 text-sm">{errorMessages.whatsapp}</span>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="mt-4 flex justify-between">
+                            <button
+                                onClick={closeInvalidModal}
+                                className="bg-gray-500 text-white px-4 py-2 rounded"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const newIndex = currentIndex + 1;
+                                    if (newIndex < invalidEntries.length) {
+                                        setCurrentIndex(newIndex);
+                                    } else {
+                                        handleSaveInvalidNumbers();
+                                        setIsInvalidModalOpen(false);
+                                    }
+                                }}
+                                className={`bg-blue-500 text-white px-4 py-2 rounded ${isButtonDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                disabled={isButtonDisabled}
+                            >
+                                {currentIndex < invalidEntries.length - 1 ? 'Next' : 'Save'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

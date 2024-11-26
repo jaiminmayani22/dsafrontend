@@ -12,15 +12,29 @@ const ImageWithLayers: React.FC<ImageWithLayersProps> = ({ selectedTemplate, sel
         if (selectedTemplate && selectedRefTemplate) {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            canvas.width = selectedTemplate.data.width;
-            canvas.height = selectedTemplate.data.height;
+            if (selectedTemplate.data && selectedTemplate.data.width && selectedTemplate.data.height) {
+                canvas.width = selectedTemplate.data.width;
+                canvas.height = selectedTemplate.data.height;
+            } else if (typeof selectedTemplate === 'string') {
+                const img = new Image();
+                img.src = selectedTemplate;
+                img.onload = () => {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+                };
+
+                img.onerror = () => {
+                    console.error("Failed to load image from URL.");
+                };
+            }
 
             if (ctx) {
                 const img = new Image();
-                img.src = selectedTemplate.imageUrl;
+                // img.crossOrigin = "anonymous";
+                img.src = selectedTemplate.imageUrl ? selectedTemplate.imageUrl : selectedTemplate;
                 img.onload = () => {
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
                     selectedRefTemplate.layers.forEach((layer: any) => {
                         if (layer.type === 'text') {
                             const quillClassMapping: { [key: string]: string } = {
@@ -47,10 +61,43 @@ const ImageWithLayers: React.FC<ImageWithLayersProps> = ({ selectedTemplate, sel
                             };
 
                             let currentY = layer.y;
-
                             textElements.forEach((textElement) => {
-                                const text = extractTextContent(textElement);
+                                const replacements: Record<'logo' | 'name' | 'address' | 'number' | 'website' | 'email' | 'instagramId' | 'facebookId', string> = {
+                                    logo: "logo", // This will trigger rectangle rendering
+                                    name: "Tom Smith",
+                                    address: "Rajkot",
+                                    number: "+919586985698",
+                                    website: "www.dashrathsilverart.com",
+                                    email: "dashrathsilverart@gmail.com",
+                                    instagramId: "dashrathsilverart",
+                                    facebookId: "Dashrath Silver Art",
+                                };
+
+                                let text = extractTextContent(textElement);
+                                text = replacements[text as keyof typeof replacements] || text;
+
                                 if (!text.trim()) return;
+
+                                if (text.toLowerCase() === "logo") {
+                                    const rectWidth = 100;
+                                    const rectHeight = 50;
+
+                                    ctx.fillStyle = 'white';
+                                    ctx.fillRect(layer.x - rectWidth / 2, currentY - rectHeight / 2, rectWidth, rectHeight);
+                                    ctx.strokeStyle = 'black';
+                                    ctx.lineWidth = 2;
+                                    ctx.strokeRect(layer.x - rectWidth / 2, currentY - rectHeight / 2, rectWidth, rectHeight);
+
+                                    ctx.font = '40px Arial';
+                                    ctx.fillStyle = 'black';
+                                    ctx.textAlign = 'center';
+                                    ctx.textBaseline = 'middle';
+                                    ctx.fillText("logo", layer.x, currentY);
+
+                                    currentY += rectHeight;
+                                    return;
+                                }
+
 
                                 let fontSize = '24px';
                                 let fontFamily = 'Times New Roman';
@@ -90,7 +137,7 @@ const ImageWithLayers: React.FC<ImageWithLayersProps> = ({ selectedTemplate, sel
 
                                 ctx.font = `${fontWeight} ${fontStyle} ${fontSize} ${fontFamily}`;
                                 ctx.fillStyle = fillColor;
-                                ctx.textBaseline = 'top';
+                                ctx.textAlign = 'center';
                                 ctx.fillText(text, layer.x, currentY);
 
                                 if (textDecoration === 'underline') {
@@ -105,7 +152,6 @@ const ImageWithLayers: React.FC<ImageWithLayersProps> = ({ selectedTemplate, sel
                             });
                         }
                     });
-
                     setImageUrl(canvas.toDataURL('image/png'));
                 };
             } else {
