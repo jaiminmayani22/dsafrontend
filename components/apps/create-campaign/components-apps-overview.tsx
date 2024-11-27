@@ -65,6 +65,7 @@ const ComponentsAppsCampaignOverview = () => {
     const [caption, setCaption] = useState(items.caption);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
 
     //FETCH ALL CAMPAIGNS
     useEffect(() => {
@@ -152,6 +153,8 @@ const ComponentsAppsCampaignOverview = () => {
     }, [items.type]);
 
     const retargetButtonClick = async () => {
+        setLoading(true);
+
         interface Data {
             name: any;
             type: any;
@@ -214,6 +217,7 @@ const ComponentsAppsCampaignOverview = () => {
         } catch (error) {
             showMessage('Error uploading template', 'error');
         }
+        setLoading(false);
     };
 
     const showMessage = (msg = '', type = 'success') => {
@@ -765,8 +769,37 @@ const ComponentsAppsCampaignOverview = () => {
                                                     type="button"
                                                     className="btn btn-primary px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-200"
                                                     onClick={() => retargetButtonClick()}
+                                                    disabled={loading}
                                                 >
-                                                    Create Campaign
+                                                    {loading ? (
+                                                        <span className="flex items-center">
+                                                            <svg
+                                                                className="animate-spin h-5 w-5 mr-2 text-white"
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                fill="none"
+                                                                viewBox="0 0 24 24"
+                                                            >
+                                                                <circle
+                                                                    className="opacity-25"
+                                                                    cx="12"
+                                                                    cy="12"
+                                                                    r="10"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="4"
+                                                                ></circle>
+                                                                <path
+                                                                    className="opacity-75"
+                                                                    fill="currentColor"
+                                                                    d="M4 12a8 8 0 018-8v4a4 4 0 000 8H4z"
+                                                                ></path>
+                                                            </svg>
+                                                            Loading...
+                                                        </span>
+                                                    ) : (
+                                                        <>
+                                                            <span>Create Campaign</span>
+                                                        </>
+                                                    )}
                                                 </button>
                                             </div>
                                         </form>

@@ -1,4 +1,10 @@
 'use client';
+import { IRootState } from '@/store';
+import React, { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
+import { useRouter } from 'next/navigation'
+import Swal from 'sweetalert2';
+
 import Dropdown from '@/components/dropdown';
 import IconBell from '@/components/icon/icon-bell';
 import IconCamera from '@/components/icon/icon-camera';
@@ -22,9 +28,8 @@ import IconTrashLines from '@/components/icon/icon-trash-lines';
 import IconUserPlus from '@/components/icon/icon-user-plus';
 import IconVideo from '@/components/icon/icon-video';
 import PerfectScrollbar from 'react-perfect-scrollbar';
-import { IRootState } from '@/store';
-import React, { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
+
+import apis from '../../../public/apis';
 
 const contactList = [
     {
@@ -116,136 +121,7 @@ const contactList = [
             },
         ],
         active: true,
-    },
-    {
-        userId: 4,
-        name: 'Alan Green',
-        path: 'profile-3.jpeg',
-        time: '2:06 PM',
-        preview: 'But we’re probably gonna need a new carpet.',
-        messages: [
-            {
-                fromUserId: 0,
-                toUserId: 4,
-                text: 'Hi, collect your check',
-            },
-            {
-                fromUserId: 4,
-                toUserId: 0,
-                text: 'Ok, I will be there in 10 mins',
-            },
-        ],
-        active: true,
-    },
-    {
-        userId: 5,
-        name: 'Shaun Park',
-        path: 'profile-4.jpeg',
-        time: '2:05 PM',
-        preview: 'It’s not that bad...',
-        messages: [
-            {
-                fromUserId: 0,
-                toUserId: 3,
-                text: 'Hi, I am back from vacation',
-            },
-            {
-                fromUserId: 0,
-                toUserId: 3,
-                text: 'How are you?',
-            },
-            {
-                fromUserId: 0,
-                toUserId: 5,
-                text: 'Welcom Back',
-            },
-            {
-                fromUserId: 0,
-                toUserId: 5,
-                text: 'I am all well',
-            },
-            {
-                fromUserId: 5,
-                toUserId: 0,
-                text: 'Coffee?',
-            },
-        ],
-        active: false,
-    },
-    {
-        userId: 6,
-        name: 'Roxanne',
-        path: 'profile-5.jpeg',
-        time: '2:00 PM',
-        preview: 'Wasup for the third time like is you bling bitch',
-        messages: [
-            {
-                fromUserId: 0,
-                toUserId: 6,
-                text: 'Hi',
-            },
-            {
-                fromUserId: 0,
-                toUserId: 6,
-                text: 'Uploaded files to server.',
-            },
-        ],
-        active: false,
-    },
-    {
-        userId: 7,
-        name: 'Ernest Reeves',
-        path: 'profile-6.jpeg',
-        time: '2:09 PM',
-        preview: 'Wasup for the third time like is you bling bitch',
-        messages: [],
-        active: true,
-    },
-    {
-        userId: 8,
-        name: 'Laurie Fox',
-        path: 'profile-7.jpeg',
-        time: '12:09 PM',
-        preview: 'Wasup for the third time like is you bling bitch',
-        messages: [],
-        active: true,
-    },
-    {
-        userId: 9,
-        name: 'Xavier',
-        path: 'profile-8.jpeg',
-        time: '4:09 PM',
-        preview: 'Wasup for the third time like is you bling bitch',
-        messages: [],
-        active: false,
-    },
-    {
-        userId: 10,
-        name: 'Susan Phillips',
-        path: 'profile-9.jpeg',
-        time: '9:00 PM',
-        preview: 'Wasup for the third time like is you bling bitch',
-        messages: [],
-        active: true,
-    },
-    {
-        userId: 11,
-        name: 'Dale Butler',
-        path: 'profile-10.jpeg',
-        time: '5:09 PM',
-        preview: 'Wasup for the third time like is you bling bitch',
-        messages: [],
-        active: false,
-    },
-    {
-        userId: 12,
-        name: 'Grace Roberts',
-        path: 'user-profile.jpeg',
-        time: '8:01 PM',
-        preview: 'Wasup for the third time like is you bling bitch',
-        messages: [],
-        active: true,
-    },
+    }
 ];
 const loginUser = {
     id: 0,
@@ -255,6 +131,12 @@ const loginUser = {
 };
 
 const ComponentsAppsChat = () => {
+    const router = useRouter();
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        router.push('/auth/boxed-signin');
+    }
+
     const isRtl = useSelector((state: IRootState) => state.themeConfig.rtlClass) === 'rtl';
     const isDark = useSelector((state: IRootState) => state.themeConfig.theme === 'dark' || state.themeConfig.isDarkMode);
 
@@ -263,7 +145,38 @@ const ComponentsAppsChat = () => {
     const [isShowUserChat, setIsShowUserChat] = useState(false);
     const [selectedUser, setSelectedUser] = useState<any>(null);
     const [textMessage, setTextMessage] = useState('');
-    const [filteredItems, setFilteredItems] = useState<any>(contactList);
+    const [filteredItems, setFilteredItems] = useState<any>();
+
+    useEffect(() => {
+        const getReceivedMessageData = async () => {
+            await fetch(apis.receivedMessagesHistory, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            })
+                .then(async (response) => {
+                    return response.json().then(async (data) => {
+                        if (response.status === 401 && data.message === "Token expired! Please login again") {
+                            showMessage(data.message, 'error');
+                            router.push('/auth/boxed-signin');
+                            throw new Error('Token expired');
+                        }
+                        if (!response.ok) {
+                            showMessage(data.message, 'error');
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        setFilteredItems(data.data);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching contacts:', error);
+                });
+        };
+
+        getReceivedMessageData();
+    }, []);
 
     useEffect(() => {
         setFilteredItems(() => {
@@ -307,6 +220,21 @@ const ComponentsAppsChat = () => {
         if (event.key === 'Enter') {
             sendMessage();
         }
+    };
+
+    const showMessage = (msg = '', type = 'success') => {
+        const toast: any = Swal.mixin({
+            toast: true,
+            position: 'top',
+            showConfirmButton: false,
+            timer: 3000,
+            customClass: { container: 'toast' },
+        });
+        toast.fire({
+            icon: type,
+            title: msg,
+            padding: '10px 20px',
+        });
     };
 
     return (
@@ -359,7 +287,7 @@ const ComponentsAppsChat = () => {
                             <IconSearch />
                         </div>
                     </div>
-                    <div className="flex items-center justify-between text-xs">
+                    {/* <div className="flex items-center justify-between text-xs">
                         <button type="button" className="hover:text-primary">
                             <IconMessagesDot className="mx-auto mb-1" />
                             Chats
@@ -379,40 +307,38 @@ const ComponentsAppsChat = () => {
                             <IconBell className="mx-auto mb-1 h-5 w-5" />
                             Notification
                         </button>
-                    </div>
+                    </div> */}
                     <div className="h-px w-full border-b border-white-light dark:border-[#1b2e4b]"></div>
                     <div className="!mt-0">
                         <PerfectScrollbar className="chat-users relative h-full min-h-[100px] space-y-0.5 ltr:-mr-3.5 ltr:pr-3.5 rtl:-ml-3.5 rtl:pl-3.5 sm:h-[calc(100vh_-_357px)]">
-                            {filteredItems.map((person: any) => {
+                            {filteredItems?.map((person: any) => {
+                                const formattedTime = new Date(person.updatedAt).toLocaleTimeString([], {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: true,
+                                });
+
                                 return (
-                                    <div key={person.userId}>
+                                    <div key={person.from}>
                                         <button
                                             type="button"
-                                            className={`flex w-full items-center justify-between rounded-md p-2 hover:bg-gray-100 hover:text-primary dark:hover:bg-[#050b14] dark:hover:text-primary ${
-                                                selectedUser && selectedUser.userId === person.userId ? 'bg-gray-100 text-primary dark:bg-[#050b14] dark:text-primary' : ''
-                                            }`}
+                                            className={`flex w-full items-center justify-between rounded-md p-2 hover:bg-gray-100 hover:text-primary dark:hover:bg-[#050b14] dark:hover:text-primary ${selectedUser && selectedUser.userId === person.userId ? 'bg-gray-100 text-primary dark:bg-[#050b14] dark:text-primary' : ''
+                                                }`}
                                             onClick={() => selectUser(person)}
                                         >
                                             <div className="flex-1">
                                                 <div className="flex items-center">
                                                     <div className="relative flex-shrink-0">
-                                                        <img src={`/assets/images/${person.path}`} className="h-12 w-12 rounded-full object-cover" alt="" />
-                                                        {person.active && (
-                                                            <div>
-                                                                <div className="absolute bottom-0 ltr:right-0 rtl:left-0">
-                                                                    <div className="h-4 w-4 rounded-full bg-success"></div>
-                                                                </div>
-                                                            </div>
-                                                        )}
+                                                        {/* <img src={`/assets/images/${person.path}`} className="h-12 w-12 rounded-full object-cover" alt="" /> */}
                                                     </div>
                                                     <div className="mx-3 ltr:text-left rtl:text-right">
-                                                        <p className="mb-1 font-semibold">{person.name}</p>
-                                                        <p className="max-w-[185px] truncate text-xs text-white-dark">{person.preview}</p>
+                                                        <p className="mb-1 font-semibold">{person.messages[0].fromName}</p>
+                                                        <p className="max-w-[185px] truncate text-xs text-white-dark">{person.messages[0].message}</p>
                                                     </div>
                                                 </div>
                                             </div>
                                             <div className="whitespace-nowrap text-xs font-semibold">
-                                                <p>{person.time}</p>
+                                                <p>{formattedTime}</p>
                                             </div>
                                         </button>
                                     </div>
@@ -638,11 +564,10 @@ const ComponentsAppsChat = () => {
                                                             <div className="space-y-2">
                                                                 <div className="flex items-center gap-3">
                                                                     <div
-                                                                        className={`rounded-md bg-black/10 p-4 py-2 dark:bg-gray-800 ${
-                                                                            message.fromUserId === selectedUser.userId
-                                                                                ? '!bg-primary text-white ltr:rounded-br-none rtl:rounded-bl-none'
-                                                                                : 'ltr:rounded-bl-none rtl:rounded-br-none'
-                                                                        }`}
+                                                                        className={`rounded-md bg-black/10 p-4 py-2 dark:bg-gray-800 ${message.fromUserId === selectedUser.userId
+                                                                            ? '!bg-primary text-white ltr:rounded-br-none rtl:rounded-bl-none'
+                                                                            : 'ltr:rounded-bl-none rtl:rounded-br-none'
+                                                                            }`}
                                                                     >
                                                                         {message.text}
                                                                     </div>

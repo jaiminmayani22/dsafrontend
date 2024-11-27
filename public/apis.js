@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 
-// const SERVER = "http://localhost:8080/";
+const SERVER = "http://localhost:8080/";
 // const SERVER = "https://dsaserver.onrender.com/";
-const SERVER = "https://newdsa.dsasilver.com/";
+// const SERVER = "https://newdsa.dsasilver.com/";
 // const SERVER = "http://172.20.10.5:8080/";
 
 if (!SERVER) {
@@ -76,6 +76,9 @@ const apis = {
     getVariableById: `${SERVER}template/getVariableById/`,
     deleteVariableById: `${SERVER}template/deleteVariableById`,
     updateVariableById: `${SERVER}template/updateVariableById/`,
+    
+    //RECEIVED MESSAGES
+    receivedMessagesHistory: `${SERVER}chat/receivedMessagesHistory`,
 };
 
 module.exports = apis;

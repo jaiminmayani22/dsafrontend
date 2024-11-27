@@ -7,7 +7,7 @@ const nextConfig = {
     },
     trailingSlash: true,
     output: 'export',
-    useFileSystemPublicRoutes: false,
+    // useFileSystemPublicRoutes: false,
 };
 
 module.exports = nextConfig;

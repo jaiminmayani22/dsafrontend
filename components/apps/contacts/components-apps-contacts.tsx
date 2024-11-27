@@ -56,6 +56,7 @@ const ComponentsAppsContacts = () => {
     const [selectedRecords, setSelectedRecords] = useState<any[]>([]);
     const [isInvalidModalOpen, setIsInvalidModalOpen] = useState(false);
     const [errorMessages, setErrorMessages] = useState({ mobile: '', whatsapp: '' });
+    const [loading, setLoading] = useState(false);
 
     const [defaultParams] = useState({
         _id: null,
@@ -220,15 +221,18 @@ const ComponentsAppsContacts = () => {
 
     const saveUser = async (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
+        setLoading(true);
         const newErrors: { [key: string]: string } = {};
 
         if (!params.name) {
             showMessage('Name is required.', 'error');
+            setLoading(false);
             return true;
         }
 
         if (!params.whatsapp_number) {
             showMessage('Whatsapp Number is required.', 'error');
+            setLoading(false);
             return true;
         }
 
@@ -238,13 +242,13 @@ const ComponentsAppsContacts = () => {
         }
 
         if (!validateMobileNumber(params.whatsapp_number)) {
-            newErrors.whatsapp_number = 'Whatsapp number must be exactly 10 digits.';
-            showMessage('Whatsapp number must be exactly 10 digits.', 'error');
-        }        
+            newErrors.whatsapp_number = 'Whatsapp number must be exactly 10 digits excluding +91';
+            showMessage('Whatsapp number must be exactly 10 digits excluding +91', 'error');
+        }
 
         if ((!validateMobileNumber(params.mobile_number)) && (params.mobile_number !== "")) {
-            newErrors.mobile_number = 'Mobile number must be exactly 10 digits.';
-            showMessage('Mobile number must be exactly 10 digits.', 'error');
+            newErrors.mobile_number = 'Mobile number must be exactly 10 digits excluding +91';
+            showMessage('Mobile number must be exactly 10 digits excluding +91', 'error');
         }
 
         if (Object.keys(newErrors).length === 0) {
@@ -311,12 +315,16 @@ const ComponentsAppsContacts = () => {
                 } else {
                     showMessage('An unknown error occurred.', 'error');
                 }
+            } finally {
+                setLoading(false);
             }
+            setErrors('');
             setAddContactModal(false);
         } else {
             setErrors(newErrors);
             return true;
         }
+        setLoading(false);
     };
 
     const editUser = (_id: any = null) => {
@@ -347,8 +355,9 @@ const ComponentsAppsContacts = () => {
 
             if (response.ok) {
                 const deletedId = await response.json();
-                setFilteredItems(filteredItems.filter((d: any) => d._id !== deletedId.data));
-                setContacts(filteredItems);
+                const updatedFilteredItems = filteredItems.filter((d: any) => d._id !== deletedId.data);
+                setFilteredItems(updatedFilteredItems);
+                setContacts(updatedFilteredItems);
                 showMessage('User has been deleted successfully.');
                 return true;
             } else {
@@ -620,8 +629,9 @@ const ComponentsAppsContacts = () => {
 
             if (response.ok) {
                 const deletedIds = await response.json();
-                setFilteredItems(filteredItems => filteredItems.filter(contact => !deletedIds.includes(contact._id)));
-                setContacts(filteredItems);
+                const updatedFilteredItems = filteredItems.filter(contact => !deletedIds.includes(contact._id));
+                setFilteredItems(updatedFilteredItems);
+                setContacts(updatedFilteredItems);
                 setSelectedRecords([]);
             } else {
                 console.error('Failed to delete contacts:', response.statusText);
@@ -784,9 +794,15 @@ const ComponentsAppsContacts = () => {
     };
 
     const validateMobileNumber = (number: string): boolean => {
-        const mobileRegex = /^(\+?\d{1,3})?(\d{10})$/;
-        return mobileRegex.test(number);
-    };    
+        const mobileRegexWithCountryCode = /^\+91\d{10}$/;
+        const mobileRegexWithoutCountryCode = /^\d{10}$/;
+
+        if (number.startsWith("+91")) {
+            return mobileRegexWithCountryCode.test(number);
+        } else {
+            return mobileRegexWithoutCountryCode.test(number);
+        }
+    };
 
     const downloadCSV = () => {
         const link = document.createElement('a');
@@ -1209,7 +1225,9 @@ const ComponentsAppsContacts = () => {
                                     {/* Close button */}
                                     <button
                                         type="button"
-                                        onClick={() => setAddContactModal(false)}
+                                        onClick={() => {
+                                            setAddContactModal(false); setErrors('');
+                                        }}
                                         className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                                     >
                                         <IconX />
@@ -1271,38 +1289,51 @@ const ComponentsAppsContacts = () => {
 
                                             {/* WhatsApp Number */}
                                             <div className="mb-5">
-                                                <label htmlFor="whatsapp_number" className="block font-medium text-gray-700 dark:text-gray-300">
+                                                <label
+                                                    htmlFor="whatsapp_number"
+                                                    className="block font-medium text-gray-700 dark:text-gray-300"
+                                                >
                                                     WhatsApp Number <span className="text-red-500">*</span>
                                                 </label>
                                                 <input
                                                     id="whatsapp_number"
                                                     type="text"
-                                                    placeholder="Enter WhatsApp Number without country code"
+                                                    placeholder="Enter WhatsApp Number (e.g., 1234567890 or +911234567890)"
                                                     className="form-input mt-1 block w-full rounded-md border border-gray-300 shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
                                                     value={params.whatsapp_number}
                                                     onChange={(e) => changeValue(e)}
-                                                    maxLength={10}
-                                                    pattern="\d{10}"
+                                                    maxLength={13}
+                                                    pattern="(\+91\d{10}|\d{10})"
+                                                    title="Enter 10 digits or a number in the format +91xxxxxxxxxx"
                                                 />
-                                                {errors.whatsapp_number && <div className="text-red-500 mt-2 text-sm">{errors.whatsapp_number}</div>}
+                                                {errors.whatsapp_number && (
+                                                    <div className="text-red-500 mt-2 text-sm">{errors.whatsapp_number}</div>
+                                                )}
                                             </div>
+
 
                                             {/* Phone Number */}
                                             <div className="mb-5">
-                                                <label htmlFor="mobile_number" className="block font-medium text-gray-700 dark:text-gray-300">
-                                                    Phone Number
+                                                <label
+                                                    htmlFor="mobile_number"
+                                                    className="block font-medium text-gray-700 dark:text-gray-300"
+                                                >
+                                                    Mobile Number <span className="text-red-500">*</span>
                                                 </label>
                                                 <input
                                                     id="mobile_number"
                                                     type="text"
-                                                    placeholder="Enter Phone Number without country code"
+                                                    placeholder="Enter Mobile Number (e.g., 1234567890 or +911234567890)"
                                                     className="form-input mt-1 block w-full rounded-md border border-gray-300 shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
                                                     value={params.mobile_number}
                                                     onChange={(e) => changeValue(e)}
-                                                    maxLength={10}
-                                                    pattern="\d{10}"
+                                                    maxLength={13}
+                                                    pattern="(\+91\d{10}|\d{10})"
+                                                    title="Enter 10 digits or a number in the format +91xxxxxxxxxx"
                                                 />
-                                                {errors.mobile_number && <div className="text-red-500 mt-2 text-sm">{errors.mobile_number}</div>}
+                                                {errors.mobile_number && (
+                                                    <div className="text-red-500 mt-2 text-sm">{errors.mobile_number}</div>
+                                                )}
                                             </div>
 
                                             {/* Group Select Dropdown */}
@@ -1397,7 +1428,9 @@ const ComponentsAppsContacts = () => {
                                                 <button
                                                     type="button"
                                                     className="btn btn-outline-danger px-4 py-2 border border-red-500 text-red-500 rounded-md hover:bg-red-500 dark:hover:bg-red-900"
-                                                    onClick={() => setAddContactModal(false)}
+                                                    onClick={() => {
+                                                        setAddContactModal(false); setErrors('');
+                                                    }}
                                                 >
                                                     Cancel
                                                 </button>
@@ -1405,8 +1438,35 @@ const ComponentsAppsContacts = () => {
                                                     type="button"
                                                     className="btn btn-primary px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
                                                     onClick={saveUser}
+                                                    disabled={loading}
                                                 >
-                                                    {params._id ? 'Update' : 'Add'}
+                                                    {loading ? (
+                                                        <span className="flex items-center">
+                                                            <svg
+                                                                className="animate-spin h-5 w-5 mr-2 text-white"
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                fill="none"
+                                                                viewBox="0 0 24 24"
+                                                            >
+                                                                <circle
+                                                                    className="opacity-25"
+                                                                    cx="12"
+                                                                    cy="12"
+                                                                    r="10"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="4"
+                                                                ></circle>
+                                                                <path
+                                                                    className="opacity-75"
+                                                                    fill="currentColor"
+                                                                    d="M4 12a8 8 0 018-8v4a4 4 0 000 8H4z"
+                                                                ></path>
+                                                            </svg>
+                                                            Loading...
+                                                        </span>
+                                                    ) : (
+                                                        params._id ? 'Update' : 'Add'
+                                                    )}
                                                 </button>
                                             </div>
                                         </form>

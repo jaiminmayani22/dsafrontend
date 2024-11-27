@@ -59,6 +59,7 @@ const ComponentsAppsCreateNewCampaign = () => {
     const [selectedRefTemplate, setSelectedRefTemplate] = useState<any>(null);
     const [selectedDocument, setSelectedDocument] = useState<any>(null);
     const fileInputRef = useRef(null);
+    const [loading, setLoading] = useState(false);
 
     //FETCH GROUPS
     useEffect(() => {
@@ -199,6 +200,8 @@ const ComponentsAppsCreateNewCampaign = () => {
     };
 
     const saveCampaign = async (send: any) => {
+        setLoading(true);
+
         const formData = new FormData();
         formData.append('name', data.name);
         formData.append('type', data.type);
@@ -256,6 +259,7 @@ const ComponentsAppsCreateNewCampaign = () => {
         } catch (error) {
             showMessage('Error uploading template', 'error');
         }
+        setLoading(false);
     };
 
     const handleImageChange = (event: any) => {
@@ -378,11 +382,6 @@ const ComponentsAppsCreateNewCampaign = () => {
                         }`}
                 >
                     <div className="flex h-full flex-col pb-16">
-                        <div className="pb-5">
-                            <button className="btn btn-primary w-full" type="button">
-                                Add Message
-                            </button>
-                        </div>
                         <PerfectScrollbar className="relative h-full grow ltr:-mr-3.5 ltr:pr-3.5 rtl:-ml-3.5 rtl:pl-3.5">
                             <div className="space-y-1">
                                 <button
@@ -940,9 +939,38 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                     type="button"
                                                                     className="flex items-center gap-2 py-2 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition duration-300"
                                                                     onClick={() => saveCampaign('')}
+                                                                    disabled={loading}
                                                                 >
-                                                                    <IconSave />
-                                                                    Save Campaign
+                                                                    {loading ? (
+                                                                        <span className="flex items-center">
+                                                                            <svg
+                                                                                className="animate-spin h-5 w-5 mr-2 text-white"
+                                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                                fill="none"
+                                                                                viewBox="0 0 24 24"
+                                                                            >
+                                                                                <circle
+                                                                                    className="opacity-25"
+                                                                                    cx="12"
+                                                                                    cy="12"
+                                                                                    r="10"
+                                                                                    stroke="currentColor"
+                                                                                    strokeWidth="4"
+                                                                                ></circle>
+                                                                                <path
+                                                                                    className="opacity-75"
+                                                                                    fill="currentColor"
+                                                                                    d="M4 12a8 8 0 018-8v4a4 4 0 000 8H4z"
+                                                                                ></path>
+                                                                            </svg>
+                                                                            Loading...
+                                                                        </span>
+                                                                    ) : (
+                                                                        <>
+                                                                            <IconSave />
+                                                                            <span>Save Campaign</span>
+                                                                        </>
+                                                                    )}
                                                                 </button>
 
                                                                 {data.type === 'immediate' && (
@@ -950,9 +978,38 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                         type="button"
                                                                         className="flex items-center gap-2 py-2 px-4 rounded-lg bg-green-600 text-white hover:bg-green-700 transition duration-300"
                                                                         onClick={() => saveCampaign('yes')}
+                                                                        disabled={loading}
                                                                     >
-                                                                        <IconSend />
-                                                                        Save & Send Campaign
+                                                                        {loading ? (
+                                                                            <span className="flex items-center">
+                                                                                <svg
+                                                                                    className="animate-spin h-5 w-5 mr-2 text-white"
+                                                                                    xmlns="http://www.w3.org/2000/svg"
+                                                                                    fill="none"
+                                                                                    viewBox="0 0 24 24"
+                                                                                >
+                                                                                    <circle
+                                                                                        className="opacity-25"
+                                                                                        cx="12"
+                                                                                        cy="12"
+                                                                                        r="10"
+                                                                                        stroke="currentColor"
+                                                                                        strokeWidth="4"
+                                                                                    ></circle>
+                                                                                    <path
+                                                                                        className="opacity-75"
+                                                                                        fill="currentColor"
+                                                                                        d="M4 12a8 8 0 018-8v4a4 4 0 000 8H4z"
+                                                                                    ></path>
+                                                                                </svg>
+                                                                                Loading...
+                                                                            </span>
+                                                                        ) : (
+                                                                            <>
+                                                                                <IconSend />
+                                                                                Save & Send Campaign
+                                                                            </>
+                                                                        )}
                                                                     </button>
                                                                 )}
                                                             </div>

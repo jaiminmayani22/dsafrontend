@@ -133,12 +133,12 @@ const ComponentsAppsVariables = () => {
 
             try {
                 const response = await fetch(apis.deleteVariableById, {
-                    method: 'DELETE', 
+                    method: 'DELETE',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`,
                     },
-                    body: JSON.stringify({ ids }), 
+                    body: JSON.stringify({ ids }),
                 });
 
                 if (!response.ok) {
@@ -146,16 +146,14 @@ const ComponentsAppsVariables = () => {
                 }
 
                 const data = await response.json();
-                console.log('Deleted successfully:', data);
-
                 const remainingItems = items.filter((user: any) => !ids.includes(user._id));
 
                 setRecords(remainingItems);
-                setInitialRecords(remainingItems); 
-                setItems(remainingItems); 
+                setInitialRecords(remainingItems);
+                setItems(remainingItems);
                 setSelectedRecords([]);
-                setSearch(''); 
-                setPage(1); 
+                setSearch('');
+                setPage(1);
                 showMessage('Successfully deleted selected row(s).');
             } catch (error) {
                 showMessage('Failed to delete selected row(s). Please try again.','error');

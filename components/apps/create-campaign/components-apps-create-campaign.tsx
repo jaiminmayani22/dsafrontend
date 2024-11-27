@@ -57,6 +57,7 @@ const ComponentsAppsCreateCampaign = () => {
     });
     const [duplicateCampaignName, setDuplicateCampaignName] = useState("");
     const [duplicateCampaignId, setDuplicateCampaignId] = useState(null);
+    const [loading, setLoading] = useState(false);
 
     //FETCH ALL CAMPAIGNS
     useEffect(() => {
@@ -247,8 +248,11 @@ const ComponentsAppsCreateCampaign = () => {
     };
 
     const handleSaveDuplicateCampaign = async () => {
+        setLoading(true);
+
         if (!duplicateCampaignName) {
             alert("Please enter a name for the duplicate campaign.");
+            setLoading(false);
             return;
         }
         const response = await fetch(`${apis.duplicateCampaign}${duplicateCampaignId}`, {
@@ -276,6 +280,7 @@ const ComponentsAppsCreateCampaign = () => {
         showMessage(data.message);
         setDuplicateModel(false);
         setDuplicateCampaignName('');
+        setLoading(false);
     };
 
     const isImageUrl = (url: any) => {
@@ -604,8 +609,33 @@ const ComponentsAppsCreateCampaign = () => {
                                     <button
                                         onClick={() => handleSaveDuplicateCampaign()}
                                         className="bg-indigo-600 text-white rounded px-4 py-2 hover:bg-indigo-700"
+                                        disabled={loading}
                                     >
-                                        Save
+                                        {loading ? (
+                                            <span className="flex items-center">
+                                                <svg
+                                                    className="animate-spin h-5 w-5 mr-2 text-white"
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <circle
+                                                        className="opacity-25"
+                                                        cx="12"
+                                                        cy="12"
+                                                        r="10"
+                                                        stroke="currentColor"
+                                                        strokeWidth="4"
+                                                    ></circle>
+                                                    <path
+                                                        className="opacity-75"
+                                                        fill="currentColor"
+                                                        d="M4 12a8 8 0 018-8v4a4 4 0 000 8H4z"
+                                                    ></path>
+                                                </svg>
+                                                Loading...
+                                            </span>
+                                        ) : "Save"}
                                     </button>
                                 </div>
                             </Dialog.Panel>

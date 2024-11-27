@@ -60,6 +60,7 @@ const ComponentsAppsGroups = () => {
     const [invalidEntries, setInvalidEntries] = useState<any[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [errorMessages, setErrorMessages] = useState({ mobile: '', whatsapp: '' });
+    const [loading, setLoading] = useState(false);
 
     const [defaultParams] = useState<any>({
         _id: null,
@@ -195,8 +196,11 @@ const ComponentsAppsGroups = () => {
     }, [sortStatus]);
 
     const saveGroup = async () => {
+        setLoading(true);
+
         if (!params.name) {
             showMessage('Name is required.', 'error');
+            setLoading(false);
             return true;
         }
         try {
@@ -241,6 +245,7 @@ const ComponentsAppsGroups = () => {
         } catch (error) {
             showMessage(`Error: ${(error as Error).message}`, 'error');
         }
+        setLoading(false);
         setAddGroupModal(false);
     };
 
@@ -516,16 +521,18 @@ const ComponentsAppsGroups = () => {
                 body: JSON.stringify({ ids: selectedRecords.map(contact => contact._id) }),
             });
 
+            const deletedIds = await response.json();
             if (response.ok) {
-                const deletedIds = await response.json();
-                setFilteredItems((filteredItems: any) => filteredItems.filter((contact: any) => !deletedIds.includes(contact._id)));
-                setMembers(filteredItems);
+                const updatedFilteredItems = filteredItems.filter((contact: any) => !deletedIds.includes(contact._id));
+                setFilteredItems(updatedFilteredItems);
+                setMembers(updatedFilteredItems);
                 setSelectedRecords([]);
+                showMessage("Contacts Deleted")
             } else {
-                console.error('Failed to delete contacts:', response.statusText);
+                showMessage("Failed to Delete Contacts", 'error')
             }
         } catch (error) {
-            console.error('Error deleting contacts:', error);
+            showMessage("Failed to Delete Contacts : ", 'error')
         }
     };
 
@@ -535,38 +542,48 @@ const ComponentsAppsGroups = () => {
     };
 
     const validateMobileNumber = (number: string): boolean => {
-        const mobileRegex = /^\+?[1-9]\d{1,3}?\d{10}$/;
-        return mobileRegex.test(number);
+        const mobileRegexWithCountryCode = /^\+91\d{10}$/;
+        const mobileRegexWithoutCountryCode = /^\d{10}$/;
+
+        if (number.startsWith("+91")) {
+            return mobileRegexWithCountryCode.test(number);
+        } else {
+            return mobileRegexWithoutCountryCode.test(number);
+        }
     };
 
     const saveUser = async (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
+        setLoading(true);
         const newErrors: { [key: string]: string } = {};
 
         if (!params.name) {
             showMessage('Name is required.', 'error');
+            setLoading(false);
             return true;
         }
 
         if (!params.whatsapp_number) {
             showMessage('Whatsapp Number is required.', 'error');
+            setLoading(false);
             return true;
         }
 
         if (!validateEmail(params.email) && (params.email !== "" && params.email !== undefined)) {
             newErrors.email = 'Please enter a valid email address.';
             showMessage('Please enter a valid email address.', 'error');
+            setLoading(false);
             return true;
         }
 
         if (!validateMobileNumber(params.whatsapp_number)) {
-            newErrors.whatsapp_number = 'Whatsapp number must be exactly 10 digits.';
-            showMessage('Mobile number must be exactly 10 digits.', 'error');
+            newErrors.whatsapp_number = 'Whatsapp number must be exactly 10 digits excluding +91';
+            showMessage('Whatsapp number must be exactly 10 digits excluding +91', 'error');
         }
 
         if ((!validateMobileNumber(params.mobile_number)) && (params.mobile_number !== "")) {
-            newErrors.mobile_number = 'Mobile number must be exactly 10 digits.';
-            showMessage('Mobile number must be exactly 10 digits.', 'error');
+            newErrors.mobile_number = 'Mobile number must be exactly 10 digits excluding +91';
+            showMessage('Mobile number must be exactly 10 digits excluding +91', 'error');
         }
 
         if (Object.keys(newErrors).length === 0) {
@@ -629,11 +646,13 @@ const ComponentsAppsGroups = () => {
             } catch (error) {
                 showMessage(`Error: ${(error as Error).message}`, 'error');
             }
+            setLoading(false);
             setAddContactModal(false);
         } else {
             setErrors(newErrors);
             return true;
         }
+        setLoading(false);
     };
 
     const handleProfilePicture = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1244,7 +1263,33 @@ const ComponentsAppsGroups = () => {
                                                     Cancel
                                                 </button>
                                                 <button type="button" className="btn btn-primary ltr:ml-4 rtl:mr-4" onClick={saveGroup}>
-                                                    {params._id ? 'Update' : 'Add'}
+                                                    {loading ? (
+                                                        <span className="flex items-center">
+                                                            <svg
+                                                                className="animate-spin h-5 w-5 mr-2 text-white"
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                fill="none"
+                                                                viewBox="0 0 24 24"
+                                                            >
+                                                                <circle
+                                                                    className="opacity-25"
+                                                                    cx="12"
+                                                                    cy="12"
+                                                                    r="10"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="4"
+                                                                ></circle>
+                                                                <path
+                                                                    className="opacity-75"
+                                                                    fill="currentColor"
+                                                                    d="M4 12a8 8 0 018-8v4a4 4 0 000 8H4z"
+                                                                ></path>
+                                                            </svg>
+                                                            Loading...
+                                                        </span>
+                                                    ) : (
+                                                        params._id ? 'Update' : 'Add'
+                                                    )}
                                                 </button>
                                             </div>
                                         </form>
@@ -1257,7 +1302,11 @@ const ComponentsAppsGroups = () => {
             </Transition>
 
             <Transition appear show={addContactModal} as={Fragment}>
-                <Dialog as="div" open={addContactModal} onClose={() => setAddContactModal(false)} className="relative z-50">
+                <Dialog as="div" open={addContactModal}
+                    onClose={() => {
+                        setAddContactModal(false); setErrors('');
+                    }}
+                    className="relative z-50">
                     <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
                         <div className="fixed inset-0 bg-[black]/60" />
                     </Transition.Child>
@@ -1275,7 +1324,9 @@ const ComponentsAppsGroups = () => {
                                 <Dialog.Panel className="panel w-full max-w-lg overflow-hidden rounded-lg border-0 p-0 text-black dark:text-white-dark">
                                     <button
                                         type="button"
-                                        onClick={() => setAddContactModal(false)}
+                                        onClick={() => {
+                                            setAddContactModal(false); setErrors('');
+                                        }}
                                         className="absolute top-4 text-gray-400 outline-none hover:text-gray-800 ltr:right-4 rtl:left-4 dark:hover:text-gray-600"
                                     >
                                         <IconX />
@@ -1306,16 +1357,51 @@ const ComponentsAppsGroups = () => {
 
                                             {/* WhatsApp Number */}
                                             <div className="mb-5">
-                                                <label htmlFor="whatsapp_number">Whatsapp Number <span style={{ color: 'red' }}>*</span> </label>
-                                                <input id="whatsapp_number" type="text" placeholder="Enter Whatsapp Number without country code" className="form-input" value={params.whatsapp_number} onChange={(e) => changeValue(e)} maxLength={10} pattern="\d{10}" />
-                                                {errors.whatsapp_number && <div className="error" style={{ color: 'red' }}>{errors.whatsapp_number}</div>}
+                                                <label
+                                                    htmlFor="whatsapp_number"
+                                                    className="block font-medium text-gray-700 dark:text-gray-300"
+                                                >
+                                                    WhatsApp Number <span className="text-red-500">*</span>
+                                                </label>
+                                                <input
+                                                    id="whatsapp_number"
+                                                    type="text"
+                                                    placeholder="Enter WhatsApp Number (e.g., 1234567890 or +911234567890)"
+                                                    className="form-input mt-1 block w-full rounded-md border border-gray-300 shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                                                    value={params.whatsapp_number}
+                                                    onChange={(e) => changeValue(e)}
+                                                    maxLength={13}
+                                                    pattern="(\+91\d{10}|\d{10})"
+                                                    title="Enter 10 digits or a number in the format +91xxxxxxxxxx"
+                                                />
+                                                {errors.whatsapp_number && (
+                                                    <div className="text-red-500 mt-2 text-sm">{errors.whatsapp_number}</div>
+                                                )}
                                             </div>
+
 
                                             {/* Phone Number */}
                                             <div className="mb-5">
-                                                <label htmlFor="phone">Phone Number </label>
-                                                <input id="mobile_number" type="text" placeholder="Enter Phone Number without country code" className="form-input" value={params.mobile_number} onChange={(e) => changeValue(e)} maxLength={10} pattern="\d{10}" />
-                                                {errors.mobile_number && <div className="error" style={{ color: 'red' }}>{errors.mobile_number}</div>}
+                                                <label
+                                                    htmlFor="mobile_number"
+                                                    className="block font-medium text-gray-700 dark:text-gray-300"
+                                                >
+                                                    Mobile Number <span className="text-red-500">*</span>
+                                                </label>
+                                                <input
+                                                    id="mobile_number"
+                                                    type="text"
+                                                    placeholder="Enter Mobile Number (e.g., 1234567890 or +911234567890)"
+                                                    className="form-input mt-1 block w-full rounded-md border border-gray-300 shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                                                    value={params.mobile_number}
+                                                    onChange={(e) => changeValue(e)}
+                                                    maxLength={13}
+                                                    pattern="(\+91\d{10}|\d{10})"
+                                                    title="Enter 10 digits or a number in the format +91xxxxxxxxxx"
+                                                />
+                                                {errors.mobile_number && (
+                                                    <div className="text-red-500 mt-2 text-sm">{errors.mobile_number}</div>
+                                                )}
                                             </div>
 
                                             {/* Instagram ID */}
@@ -1354,11 +1440,45 @@ const ComponentsAppsGroups = () => {
 
                                             {/* Buttons */}
                                             <div className="mt-8 flex items-center justify-end">
-                                                <button type="button" className="btn btn-outline-danger" onClick={() => setAddContactModal(false)}>
+                                                <button type="button"
+                                                    className="btn btn-outline-danger"
+                                                    onClick={() => {
+                                                        setAddContactModal(false);
+                                                        setErrors('');
+                                                    }}
+                                                >
                                                     Cancel
                                                 </button>
-                                                <button type="button" className="btn btn-primary ltr:ml-4 rtl:mr-4" onClick={saveUser}>
-                                                    {params._id ? 'Update' : 'Add'}
+                                                <button type="button" className="btn btn-primary ltr:ml-4 rtl:mr-4"
+                                                    disabled={loading}
+                                                    onClick={saveUser}>
+                                                    {loading ? (
+                                                        <span className="flex items-center">
+                                                            <svg
+                                                                className="animate-spin h-5 w-5 mr-2 text-white"
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                fill="none"
+                                                                viewBox="0 0 24 24"
+                                                            >
+                                                                <circle
+                                                                    className="opacity-25"
+                                                                    cx="12"
+                                                                    cy="12"
+                                                                    r="10"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="4"
+                                                                ></circle>
+                                                                <path
+                                                                    className="opacity-75"
+                                                                    fill="currentColor"
+                                                                    d="M4 12a8 8 0 018-8v4a4 4 0 000 8H4z"
+                                                                ></path>
+                                                            </svg>
+                                                            Loading...
+                                                        </span>
+                                                    ) : (
+                                                        params._id ? 'Update' : 'Add'
+                                                    )}
                                                 </button>
                                             </div>
                                         </form>

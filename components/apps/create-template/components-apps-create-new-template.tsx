@@ -72,6 +72,7 @@ const ComponentsAppsCreateNewTemplate = () => {
     const [customX, setCustomX] = useState<any>(null);
     const [customY, setCustomY] = useState<any>(null);
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+    const [loading, setLoading] = useState(false);
 
     // Effect to set the canvas context and initialize background
     useEffect(() => {
@@ -739,8 +740,11 @@ const ComponentsAppsCreateNewTemplate = () => {
     };
 
     const handleReferenceTemplate = async () => {
+        setLoading(true);
+
         if (!templateRefName) {
             alert('Template name is required to proceed.');
+            setLoading(false);
             return;
         }
 
@@ -778,6 +782,7 @@ const ComponentsAppsCreateNewTemplate = () => {
         } catch (error) {
             showMessage('Error uploading template', 'error');
         }
+        setLoading(false);
     };
 
     const openDownloadModal = () => setIsDownloadModalOpen(true);
@@ -1262,38 +1267,6 @@ const ComponentsAppsCreateNewTemplate = () => {
                     </div>
                 </div>
 
-                {/* SAVE TEMPLATE */}
-                {isDownloadModalOpen && (
-                    <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
-                        <div className="bg-white p-6 rounded-lg shadow-lg">
-                            <h2 className="text-xl font-semibold mb-4">Enter Template Name</h2>
-                            <input
-                                type="text"
-                                className="form-input w-full border border-gray-300 p-2 rounded-md mb-4"
-                                value={templateName}
-                                onChange={(e) => setTemplateName(e.target.value)}
-                                placeholder="Template name"
-                            />
-                            <div className="flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    className="btn bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
-                                    onClick={closeDownloadModal}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-                                    onClick={handleSaveAndSend}
-                                >
-                                    Save
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 {/* SAVE REF TEMPLATE */}
                 {isRefModalOpen && (
                     <div className="fixed inset-0 flex items-center justify-center z-50 bg-gray-900 bg-opacity-50">
@@ -1318,8 +1291,33 @@ const ComponentsAppsCreateNewTemplate = () => {
                                     type="button"
                                     className="btn bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
                                     onClick={handleReferenceTemplate}
+                                    disabled={loading}
                                 >
-                                    Save
+                                    {loading ? (
+                                        <span className="flex items-center">
+                                            <svg
+                                                className="animate-spin h-5 w-5 mr-2 text-white"
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <circle
+                                                    className="opacity-25"
+                                                    cx="12"
+                                                    cy="12"
+                                                    r="10"
+                                                    stroke="currentColor"
+                                                    strokeWidth="4"
+                                                ></circle>
+                                                <path
+                                                    className="opacity-75"
+                                                    fill="currentColor"
+                                                    d="M4 12a8 8 0 018-8v4a4 4 0 000 8H4z"
+                                                ></path>
+                                            </svg>
+                                            Loading...
+                                        </span>
+                                    ) : "Save"}
                                 </button>
                             </div>
                         </div>

@@ -181,7 +181,7 @@ const Sidebar = () => {
                                     </li>
                                 </ul>
                             </li>
-                            <li className="nav-item">
+                            {/* <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
                                         <Link href="/" className="group">
@@ -192,20 +192,20 @@ const Sidebar = () => {
                                         </Link>
                                     </li>
                                 </ul>
-                            </li>
+                            </li> */}
                             <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
                                         <Link href="/" className="group">
                                             <div className="flex items-center">
                                                 <IconMenuChat className="shrink-0 group-hover:!text-primary" />
-                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Chats')}</span>
+                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Chat')}</span>
                                             </div>
                                         </Link>
                                     </li>
                                 </ul>
                             </li>
-                            <li className="nav-item">
+                            {/* <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
                                         <Link href="/" className="group">
@@ -216,7 +216,7 @@ const Sidebar = () => {
                                         </Link>
                                     </li>
                                 </ul>
-                            </li>
+                            </li> */}
                             <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
