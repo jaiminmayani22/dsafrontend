@@ -322,6 +322,7 @@ const ComponentsAppsContacts = () => {
             setAddContactModal(false);
         } else {
             setErrors(newErrors);
+            setLoading(false);
             return true;
         }
         setLoading(false);
@@ -1226,7 +1227,7 @@ const ComponentsAppsContacts = () => {
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            setAddContactModal(false); setErrors('');
+                                            setAddContactModal(false); setErrors(''); setLoading(false);
                                         }}
                                         className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                                     >
@@ -1429,7 +1430,7 @@ const ComponentsAppsContacts = () => {
                                                     type="button"
                                                     className="btn btn-outline-danger px-4 py-2 border border-red-500 text-red-500 rounded-md hover:bg-red-500 dark:hover:bg-red-900"
                                                     onClick={() => {
-                                                        setAddContactModal(false); setErrors('');
+                                                        setAddContactModal(false); setErrors(''); setLoading(false);
                                                     }}
                                                 >
                                                     Cancel

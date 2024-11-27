@@ -650,6 +650,7 @@ const ComponentsAppsGroups = () => {
             setAddContactModal(false);
         } else {
             setErrors(newErrors);
+            setLoading(false);
             return true;
         }
         setLoading(false);
@@ -1325,7 +1326,7 @@ const ComponentsAppsGroups = () => {
                                     <button
                                         type="button"
                                         onClick={() => {
-                                            setAddContactModal(false); setErrors('');
+                                            setAddContactModal(false); setErrors(''); setLoading(false);
                                         }}
                                         className="absolute top-4 text-gray-400 outline-none hover:text-gray-800 ltr:right-4 rtl:left-4 dark:hover:text-gray-600"
                                     >
@@ -1445,6 +1446,7 @@ const ComponentsAppsGroups = () => {
                                                     onClick={() => {
                                                         setAddContactModal(false);
                                                         setErrors('');
+                                                        setLoading(false);
                                                     }}
                                                 >
                                                     Cancel
