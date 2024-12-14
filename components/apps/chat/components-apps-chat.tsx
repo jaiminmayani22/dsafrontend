@@ -1,6 +1,6 @@
 'use client';
 import { IRootState } from '@/store';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { useRouter } from 'next/navigation'
 import Swal from 'sweetalert2';
@@ -30,6 +30,9 @@ import IconVideo from '@/components/icon/icon-video';
 import PerfectScrollbar from 'react-perfect-scrollbar';
 
 import apis from '../../../public/apis';
+import IconPlus from '@/components/icon/icon-plus';
+import IconImage from '@/components/icon/icon-image';
+import IconDocument from '@/components/icon/icon-document';
 
 const contactList = [
     {
@@ -123,12 +126,6 @@ const contactList = [
         active: true,
     }
 ];
-const loginUser = {
-    id: 0,
-    name: 'Alon Smith',
-    path: 'profile-34.jpeg',
-    designation: 'Software Developer',
-};
 
 const ComponentsAppsChat = () => {
     const router = useRouter();
@@ -146,6 +143,11 @@ const ComponentsAppsChat = () => {
     const [selectedUser, setSelectedUser] = useState<any>(null);
     const [textMessage, setTextMessage] = useState('');
     const [filteredItems, setFilteredItems] = useState<any>();
+    const [item, setItem] = useState<any>([]);
+    const [isDropdownOpen, setDropdownOpen] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [fileType, setFileType] = useState<string>("");
+    const [selectedFile, setSelectedFile] = useState<any>(null);
 
     useEffect(() => {
         const getReceivedMessageData = async () => {
@@ -179,6 +181,35 @@ const ComponentsAppsChat = () => {
     }, []);
 
     useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await fetch(apis.verifyToken, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+                const data = await response.json();
+
+                if (response.status === 401 && data.message === "Token expired! Please login again") {
+                    showMessage(data.message, 'error');
+                    router.push('/auth/boxed-signin');
+                    throw new Error('Token expired');
+                }
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                setItem(data.data);
+            } catch (error) {
+                console.error('Error fetching Data:', error);
+            }
+        };
+
+        fetchData();
+    }, []);
+
+    useEffect(() => {
         setFilteredItems(() => {
             return contactList.filter((d) => {
                 return d.name.toLowerCase().includes(searchUser.toLowerCase());
@@ -195,27 +226,67 @@ const ComponentsAppsChat = () => {
             });
         }
     };
+
     const selectUser = (user: any) => {
         setSelectedUser(user);
         setIsShowUserChat(true);
         scrollToBottom();
         setIsShowChatMenu(false);
     };
-    const sendMessage = () => {
-        if (textMessage.trim()) {
-            let list = contactList;
-            let user: any = list.find((d) => d.userId === selectedUser.userId);
-            user.messages.push({
-                fromUserId: selectedUser.userId,
-                toUserId: 0,
-                text: textMessage,
-                time: 'Just now',
-            });
-            setFilteredItems(list);
-            setTextMessage('');
-            scrollToBottom();
+
+    const sendMessage = async () => {
+        if (!textMessage.trim() && !selectedFile) {
+            console.warn("No message or file to send.");
+            return;
         }
+
+        const newMessage = {
+            fromName: '',
+            message: textMessage,
+            ticketNumber: selectedUser.messages[0].ticketNumber,
+            updatedAt: new Date(),
+            document: selectedFile,
+            type: selectedFile ? fileType : "text",
+        };
+        selectedUser.messages.push(newMessage);
+
+        const formData = new FormData();
+        formData.append('mobileNumbers', JSON.stringify([selectedUser.from]));
+        formData.append('_id', "");
+        formData.append('caption', textMessage);
+        formData.append('messageType', "");
+        formData.append('ticket', selectedUser.messages[0].ticketNumber);
+        formData.append('type', selectedFile ? fileType : "text");
+        if (selectedFile) {
+            formData.append('document', selectedFile);
+        }
+        try {
+            const response = await fetch(apis.sendDirectMessage, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            });
+            const data = await response.json();
+            if (response.status === 401 && data.message === "Token expired! Please login again") {
+                showMessage(data.message, 'error');
+                router.push('/auth/boxed-signin');
+                throw new Error('Token expired');
+            }
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            setItem(data.data);
+        } catch (error) {
+            console.error('Error fetching Data:', error);
+        }
+        setTextMessage('');
+        scrollToBottom();
+        setSelectedFile(null);
+        setFileType("");
     };
+
     const sendMessageHandle = (event: any) => {
         if (event.key === 'Enter') {
             sendMessage();
@@ -237,48 +308,34 @@ const ComponentsAppsChat = () => {
         });
     };
 
+    const handleAttachment = (type: string) => {
+        setFileType(type);
+        if (fileInputRef.current) {
+            fileInputRef.current.click();
+        }
+    };
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (file) {
+            closetoggleDropdown();
+            setSelectedFile(file);
+        }
+    };
+
+    const toggleDropdown = () => { setDropdownOpen(!isDropdownOpen); setFileType(""); };
+    const closetoggleDropdown = () => { setDropdownOpen(false); };
+
     return (
         <div>
             <div className={`relative flex h-full gap-5 sm:h-[calc(100vh_-_150px)] sm:min-h-0 ${isShowChatMenu ? 'min-h-[999px]' : ''}`}>
                 <div className={`panel absolute z-10 hidden h-full w-full max-w-xs flex-none space-y-4 overflow-hidden p-4 xl:relative xl:block ${isShowChatMenu ? '!block' : ''}`}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center">
-                            <div className="flex-none">
-                                <img src="/assets/images/profile-34.jpeg" className="h-12 w-12 rounded-full object-cover" alt="" />
-                            </div>
                             <div className="mx-3">
-                                <p className="mb-1 font-semibold">Alon Smith</p>
-                                <p className="text-xs text-white-dark">Software Developer</p>
+                                <p className="mb-1 font-semibold">{item.name}</p>
+                                <p className="text-xs text-white-dark">{item.phoneNo}</p>
                             </div>
-                        </div>
-                        <div className="dropdown">
-                            <Dropdown
-                                offset={[0, 5]}
-                                placement={`${isRtl ? 'bottom-start' : 'bottom-end'}`}
-                                btnClassName="bg-[#f4f4f4] dark:bg-[#1b2e4b] hover:bg-primary-light w-8 h-8 rounded-full !flex justify-center items-center hover:text-primary"
-                                button={<IconHorizontalDots className="opacity-70" />}
-                            >
-                                <ul className="whitespace-nowrap">
-                                    <li>
-                                        <button type="button">
-                                            <IconSettings className="h-4.5 w-4.5 shrink-0 ltr:mr-1 rtl:ml-1" />
-                                            Settings
-                                        </button>
-                                    </li>
-                                    <li>
-                                        <button type="button">
-                                            <IconHelpCircle className="h-4.5 w-4.5 shrink-0 ltr:mr-1 rtl:ml-1" />
-                                            Help & feedback
-                                        </button>
-                                    </li>
-                                    <li>
-                                        <button type="button">
-                                            <IconLogin className="shrink-0 ltr:mr-1 rtl:ml-1" />
-                                            Sign Out
-                                        </button>
-                                    </li>
-                                </ul>
-                            </Dropdown>
                         </div>
                     </div>
                     <div className="relative">
@@ -287,32 +344,11 @@ const ComponentsAppsChat = () => {
                             <IconSearch />
                         </div>
                     </div>
-                    {/* <div className="flex items-center justify-between text-xs">
-                        <button type="button" className="hover:text-primary">
-                            <IconMessagesDot className="mx-auto mb-1" />
-                            Chats
-                        </button>
-
-                        <button type="button" className="hover:text-primary">
-                            <IconPhone className="mx-auto mb-1" />
-                            Calls
-                        </button>
-
-                        <button type="button" className="hover:text-primary">
-                            <IconUserPlus className="mx-auto mb-1" />
-                            Contacts
-                        </button>
-
-                        <button type="button" className="group hover:text-primary">
-                            <IconBell className="mx-auto mb-1 h-5 w-5" />
-                            Notification
-                        </button>
-                    </div> */}
                     <div className="h-px w-full border-b border-white-light dark:border-[#1b2e4b]"></div>
                     <div className="!mt-0">
                         <PerfectScrollbar className="chat-users relative h-full min-h-[100px] space-y-0.5 ltr:-mr-3.5 ltr:pr-3.5 rtl:-ml-3.5 rtl:pl-3.5 sm:h-[calc(100vh_-_357px)]">
                             {filteredItems?.map((person: any) => {
-                                const formattedTime = new Date(person.updatedAt).toLocaleTimeString([], {
+                                const formattedTime = new Date(person.messages[person.messages.length - 1].updatedAt).toLocaleTimeString([], {
                                     hour: '2-digit',
                                     minute: '2-digit',
                                     hour12: true,
@@ -322,17 +358,15 @@ const ComponentsAppsChat = () => {
                                     <div key={person.from}>
                                         <button
                                             type="button"
-                                            className={`flex w-full items-center justify-between rounded-md p-2 hover:bg-gray-100 hover:text-primary dark:hover:bg-[#050b14] dark:hover:text-primary ${selectedUser && selectedUser.userId === person.userId ? 'bg-gray-100 text-primary dark:bg-[#050b14] dark:text-primary' : ''
+                                            className={`flex w-full items-center justify-between rounded-md p-2 hover:bg-gray-100 hover:text-primary dark:hover:bg-[#050b14] dark:hover:text-primary ${selectedUser && selectedUser.from === person.from ? 'bg-gray-100 text-primary dark:bg-[#050b14] dark:text-primary' : ''
                                                 }`}
                                             onClick={() => selectUser(person)}
                                         >
                                             <div className="flex-1">
                                                 <div className="flex items-center">
-                                                    <div className="relative flex-shrink-0">
-                                                        {/* <img src={`/assets/images/${person.path}`} className="h-12 w-12 rounded-full object-cover" alt="" /> */}
-                                                    </div>
                                                     <div className="mx-3 ltr:text-left rtl:text-right">
-                                                        <p className="mb-1 font-semibold">{person.messages[0].fromName}</p>
+                                                        {/* <p className="mb-1 font-semibold">{person.messages[0].fromName}</p> */}
+                                                        <p className="mb-1 font-semibold">{person.from}</p>
                                                         <p className="max-w-[185px] truncate text-xs text-white-dark">{person.messages[0].message}</p>
                                                     </div>
                                                 </div>
@@ -473,64 +507,11 @@ const ComponentsAppsChat = () => {
                                     <button type="button" className="hover:text-primary xl:hidden" onClick={() => setIsShowChatMenu(!isShowChatMenu)}>
                                         <IconMenu />
                                     </button>
-                                    <div className="relative flex-none">
-                                        <img src={`/assets/images/${selectedUser.path}`} className="h-10 w-10 rounded-full object-cover sm:h-12 sm:w-12" alt="" />
-                                        <div className="absolute bottom-0 ltr:right-0 rtl:left-0">
-                                            <div className="h-4 w-4 rounded-full bg-success"></div>
-                                        </div>
-                                    </div>
                                     <div className="mx-3">
-                                        <p className="font-semibold">{selectedUser.name}</p>
-                                        <p className="text-xs text-white-dark">{selectedUser.active ? 'Active now' : 'Last seen at ' + selectedUser.time}</p>
-                                    </div>
-                                </div>
-                                <div className="flex gap-3 sm:gap-5">
-                                    <button type="button">
-                                        <IconPhoneCall className="hover:text-primary" />
-                                    </button>
-
-                                    <button type="button">
-                                        <IconVideo className="h-5 w-5 hover:text-primary" />
-                                    </button>
-                                    <div className="dropdown">
-                                        <Dropdown
-                                            placement={`${isRtl ? 'bottom-start' : 'bottom-end'}`}
-                                            btnClassName="bg-[#f4f4f4] dark:bg-[#1b2e4b] hover:bg-primary-light w-8 h-8 rounded-full !flex justify-center items-center"
-                                            button={<IconHorizontalDots className="rotate-90 opacity-70 hover:text-primary" />}
-                                        >
-                                            <ul className="text-black dark:text-white-dark">
-                                                <li>
-                                                    <button type="button">
-                                                        <IconSearch className="shrink-0 ltr:mr-2 rtl:ml-2" />
-                                                        Search
-                                                    </button>
-                                                </li>
-                                                <li>
-                                                    <button type="button">
-                                                        <IconCopy className="h-4.5 w-4.5 shrink-0 ltr:mr-2 rtl:ml-2" />
-                                                        Copy
-                                                    </button>
-                                                </li>
-                                                <li>
-                                                    <button type="button">
-                                                        <IconTrashLines className="h-4.5 w-4.5 shrink-0 ltr:mr-2 rtl:ml-2" />
-                                                        Delete
-                                                    </button>
-                                                </li>
-                                                <li>
-                                                    <button type="button">
-                                                        <IconShare className="h-4.5 w-4.5 shrink-0 ltr:mr-2 rtl:ml-2" />
-                                                        Share
-                                                    </button>
-                                                </li>
-                                                <li>
-                                                    <button type="button">
-                                                        <IconSettings className="h-4.5 w-4.5 shrink-0 ltr:mr-2 rtl:ml-2" />
-                                                        Settings
-                                                    </button>
-                                                </li>
-                                            </ul>
-                                        </Dropdown>
+                                        <p className="font-semibold">{selectedUser.messages[0].fromName}</p>
+                                        <p className="text-xs text-white-dark">
+                                            <p className="font-semibold">{selectedUser.messages[0].from}</p>
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -538,45 +519,102 @@ const ComponentsAppsChat = () => {
 
                             <PerfectScrollbar className="chat-conversation-box relative h-full sm:h-[calc(100vh_-_300px)]">
                                 <div className="min-h-[400px] space-y-5 p-4 pb-[68px] sm:min-h-[300px] sm:pb-0">
-                                    <div className="m-6 mt-0 block">
+                                    {/* <div className="m-6 mt-0 block">
                                         <h4 className="relative border-b border-[#f4f4f4] text-center text-xs dark:border-gray-800">
-                                            <span className="relative top-2 bg-white px-3 dark:bg-black">{'Today, ' + selectedUser.time}</span>
+                                            <span className="relative top-2 bg-white px-3 dark:bg-black">
+                                                {new Date(selectedUser.messages[selectedUser.messages.length - 1].updatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })},
+                                                {new Date(selectedUser.messages[selectedUser.messages.length - 1].updatedAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                            </span>
                                         </h4>
-                                    </div>
+                                    </div> */}
                                     {selectedUser.messages && selectedUser.messages.length ? (
                                         <>
                                             {selectedUser.messages.map((message: any, index: any) => {
+                                                const isSentByCurrentUser = message.fromName === '';
                                                 return (
                                                     <div key={index}>
-                                                        <div className={`flex items-start gap-3 ${selectedUser.userId === message.fromUserId ? 'justify-end' : ''}`}>
-                                                            <div className={`flex-none ${selectedUser.userId === message.fromUserId ? 'order-2' : ''}`}>
-                                                                {selectedUser.userId === message.fromUserId ? (
-                                                                    <img src={`/assets/images/${loginUser.path}`} className="h-10 w-10 rounded-full object-cover" alt="" />
-                                                                ) : (
-                                                                    ''
-                                                                )}
-                                                                {selectedUser.userId !== message.fromUserId ? (
-                                                                    <img src={`/assets/images/${selectedUser.path}`} className="h-10 w-10 rounded-full object-cover" alt="" />
-                                                                ) : (
-                                                                    ''
-                                                                )}
-                                                            </div>
+                                                        <div className={`flex items-start gap-3 ${isSentByCurrentUser ? 'justify-end' : 'justify-start'}`}>
                                                             <div className="space-y-2">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div
-                                                                        className={`rounded-md bg-black/10 p-4 py-2 dark:bg-gray-800 ${message.fromUserId === selectedUser.userId
-                                                                            ? '!bg-primary text-white ltr:rounded-br-none rtl:rounded-bl-none'
-                                                                            : 'ltr:rounded-bl-none rtl:rounded-br-none'
-                                                                            }`}
-                                                                    >
-                                                                        {message.text}
-                                                                    </div>
-                                                                    <div className={`${selectedUser.userId === message.fromUserId ? 'hidden' : ''}`}>
-                                                                        <IconMoodSmile className="hover:text-primary" />
-                                                                    </div>
+                                                                <div className={`flex items-center gap-3 ${isSentByCurrentUser ? 'ltr:flex-row-reverse' : ''}`}>
+                                                                    {(message.type === "text" || message.type === "") ? (
+                                                                        <div
+                                                                            className={`rounded-md bg-black/10 p-2 py-2 dark:bg-gray-800 ${isSentByCurrentUser
+                                                                                ? '!bg-success text-white ltr:rounded-br-none rtl:rounded-bl-none'
+                                                                                : 'ltr:rounded-bl-none rtl:rounded-br-none'
+                                                                                }`}
+                                                                        >
+                                                                            {message.message}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <>
+                                                                            {message.type === "image" && (
+                                                                                message.document &&
+                                                                                    (typeof message.document === "string" && (message.document.startsWith('http://') || message.document.startsWith('https://'))) ? (
+                                                                                    // External URL for images
+                                                                                    <img
+                                                                                        src={message.document}
+                                                                                        alt="Image"
+                                                                                        className="max-w-[200px] rounded"
+                                                                                    />
+                                                                                ) : (
+                                                                                    // Blob or File object
+                                                                                    <img
+                                                                                        src={message.document instanceof Blob ? URL.createObjectURL(message.document) : message.document}
+                                                                                        alt="Image"
+                                                                                        className="max-w-[200px] rounded"
+                                                                                    />
+                                                                                )
+                                                                            )}
+
+                                                                            {message.type === "video" && (
+                                                                                message.document &&
+                                                                                    (typeof message.document === "string" && (message.document.startsWith('http://') || message.document.startsWith('https://'))) ? (
+                                                                                    <video
+                                                                                        src={message.document}
+                                                                                        controls
+                                                                                        className="max-w-[200px] rounded"
+                                                                                    />
+                                                                                ) : (
+                                                                                    message.document instanceof Blob ? (
+                                                                                        <video
+                                                                                            src={URL.createObjectURL(message.document)}
+                                                                                            controls
+                                                                                            className="max-w-[200px] rounded"
+                                                                                        />
+                                                                                    ) : (
+                                                                                        <div>Invalid video source</div>
+                                                                                    )
+                                                                                )
+                                                                            )}
+
+                                                                            {message.type === "document" && (
+                                                                                message.document &&
+                                                                                    (typeof message.document === "string" && (message.document.startsWith('http://') || message.document.startsWith('https://'))) ? (
+                                                                                    <a
+                                                                                        href={message.document}
+                                                                                        target="_blank"
+                                                                                        rel="noopener noreferrer"
+                                                                                        className="text-blue-500 underline"
+                                                                                    >
+                                                                                        {message.document.split('/').pop()} {/* Extracting file name from the URL */}
+                                                                                    </a>
+                                                                                ) : (
+                                                                                    <a
+                                                                                        href={URL.createObjectURL(message.document)}
+                                                                                        target="_blank"
+                                                                                        rel="noopener noreferrer"
+                                                                                        className="text-blue-500 underline"
+                                                                                    >
+                                                                                        {message.document.name} {/* Extracting file name from Blob */}
+                                                                                    </a>
+                                                                                )
+                                                                            )}
+                                                                        </>
+                                                                    )}
                                                                 </div>
-                                                                <div className={`text-xs text-white-dark ${selectedUser.userId === message.fromUserId ? 'ltr:text-right rtl:text-left' : ''}`}>
-                                                                    {message.time ? message.time : '5h ago'}
+                                                                <div className={`text-xs text-white-dark ${isSentByCurrentUser ? 'ltr:text-right rtl:text-left' : 'ltr:text-left rtl:text-right'}`}>
+                                                                    {new Date(message.updatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })},
+                                                                    {new Date(message.updatedAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -589,38 +627,114 @@ const ComponentsAppsChat = () => {
                                     )}
                                 </div>
                             </PerfectScrollbar>
-                            <div className="absolute bottom-0 left-0 w-full p-4">
+                            <div className="absolute bottom-0 left-0 w-full p-4 bg-white shadow-md">
                                 <div className="w-full items-center space-x-3 rtl:space-x-reverse sm:flex">
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            className="p-2 rounded-full bg-[#f4f4f4] hover:bg-gray-300 focus:outline-none"
+                                            aria-label="More options"
+                                            onClick={toggleDropdown}
+                                        >
+                                            <IconPlus />
+                                        </button>
+
+                                        {isDropdownOpen && (
+                                            <div className="absolute bottom-full left-0 mb-2 bg-white rounded-lg shadow-lg p-2">
+                                                <div className="space-y-2">
+                                                    <button
+                                                        id='image-button'
+                                                        className="flex items-center gap-2 p-2 w-full hover:bg-gray-100 rounded-lg"
+                                                        onClick={() => handleAttachment("image")}
+                                                    >
+                                                        <IconImage />
+                                                        Image
+                                                    </button>
+                                                    <button
+                                                        id='document-button'
+                                                        className="flex items-center gap-2 p-2 w-full hover:bg-gray-100 rounded-lg"
+                                                        onClick={() => handleAttachment("document")}
+                                                    >
+                                                        <IconDocument />
+                                                        Document
+                                                    </button>
+                                                    <button
+                                                        id='video-button'
+                                                        className="flex items-center gap-2 p-2 w-full hover:bg-gray-100 rounded-lg"
+                                                        onClick={() => handleAttachment("video")}
+                                                    >
+                                                        <IconVideo />
+                                                        Video
+                                                    </button>
+
+                                                    <input
+                                                        ref={fileInputRef}
+                                                        id="ctnFile"
+                                                        type="file"
+                                                        className="hidden"
+                                                        accept={
+                                                            fileType === "image"
+                                                                ? "image/jpeg,image/png"
+                                                                : fileType === "video"
+                                                                    ? "video/mp4,video/3gp"
+                                                                    : fileType === "document"
+                                                                        ? ".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx"
+                                                                        : ""
+                                                        }
+                                                        required
+                                                        onChange={(event: any) => handleFileChange(event)}
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
                                     <div className="relative flex-1">
                                         <input
-                                            className="form-input rounded-full border-0 bg-[#f4f4f4] px-12 py-2 focus:outline-none"
+                                            className="form-input rounded-full border-0 bg-[#f4f4f4] px-4 py-2 focus:outline-none"
                                             placeholder="Type a message"
                                             value={textMessage}
-                                            onChange={(e: any) => setTextMessage(e.target.value)}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTextMessage(e.target.value)}
                                             onKeyUp={sendMessageHandle}
                                         />
-                                        <button type="button" className="absolute top-1/2 -translate-y-1/2 hover:text-primary ltr:left-4 rtl:right-4">
-                                            <IconMoodSmile />
-                                        </button>
-                                        <button type="button" className="absolute top-1/2 -translate-y-1/2 hover:text-primary ltr:right-4 rtl:left-4" onClick={() => sendMessage()}>
+                                        <button
+                                            type="button"
+                                            className="absolute top-1/2 -translate-y-1/2 hover:text-primary ltr:right-4 rtl:left-4"
+                                            onClick={() => sendMessage()}
+                                        // disabled={!textMessage.trim() || !selectedFile}
+                                        >
                                             <IconSend />
                                         </button>
                                     </div>
-                                    <div className="hidden items-center space-x-3 py-3 rtl:space-x-reverse sm:block sm:py-0">
-                                        <button type="button" className="rounded-md bg-[#f4f4f4] p-2 hover:bg-primary-light hover:text-primary dark:bg-[#1b2e4b]">
-                                            <IconMicrophoneOff />
-                                        </button>
-                                        <button type="button" className="rounded-md bg-[#f4f4f4] p-2 hover:bg-primary-light hover:text-primary dark:bg-[#1b2e4b]">
-                                            <IconDownload />
-                                        </button>
-                                        <button type="button" className="rounded-md bg-[#f4f4f4] p-2 hover:bg-primary-light hover:text-primary dark:bg-[#1b2e4b]">
-                                            <IconCamera />
-                                        </button>
-                                        <button type="button" className="rounded-md bg-[#f4f4f4] p-2 hover:bg-primary-light hover:text-primary dark:bg-[#1b2e4b]">
-                                            <IconHorizontalDots className="opacity-70" />
+                                </div>
+                                {selectedFile && (
+                                    <div className="mt-2 flex items-center gap-2">
+                                        {fileType === "image" && (
+                                            <img
+                                                src={URL.createObjectURL(selectedFile)}
+                                                alt="Selected"
+                                                className="max-w-[100px] rounded"
+                                            />
+                                        )}
+                                        {fileType === "video" && (
+                                            <video
+                                                src={URL.createObjectURL(selectedFile)}
+                                                controls
+                                                className="max-w-[100px] rounded"
+                                            />
+                                        )}
+                                        {fileType === "document" && (
+                                            <p className="text-sm text-gray-700">{selectedFile.name}</p>
+                                        )}
+                                        <button
+                                            type="button"
+                                            className="text-red-500 hover:underline"
+                                            onClick={() => { setSelectedFile(null); setFileType(""); }}
+                                        >
+                                            Remove
                                         </button>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         </div>
                     ) : (
@@ -628,7 +742,7 @@ const ComponentsAppsChat = () => {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

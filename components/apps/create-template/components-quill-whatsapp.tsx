@@ -22,35 +22,41 @@ const CustomEditor = ({ onChange, value }: CustomEditorProps) => {
 
     const modules = {
         toolbar: [
-            ['bold', 'italic', 'underline', 'strike'], // Formatting options
+            ['bold', 'italic', 'underline'],
             ['clean'],
         ],
     };
 
-    const formats = ['bold', 'italic', 'underline', 'strike'];
+    const formats = ['bold', 'italic', 'underline'];
 
-    const convertToWhatsAppFormat = (html: string) => {
+    function convertToWhatsAppFormat(html: any) {
         let text = html
-            .replace(/<strong>(.*?)<\/strong>/g, '*$1*') // Bold
-            .replace(/<em>(.*?)<\/em>/g, '_$1_')         // Italic
-            .replace(/<u>(.*?)<\/u>/g, '_$1_')           // Underline (treated as italic in WhatsApp)
-            .replace(/<strike>(.*?)<\/strike>/g, '~$1~') // Strikethrough
-            .replace(/<br\s*\/?>/g, '\n')                // Line breaks
-            .replace(/<p>(.*?)<\/p>/g, '$1\n')           // Paragraphs to new lines
-            .replace(/<\/?[^>]+(>|$)/g, '');             // Strip all other HTML tags
+            .replace(/<strong><em><u>(.*?)<\/u><\/em><\/strong>/g, '*___$1___*')
+            .replace(/<strong><u>(.*?)<\/u><\/strong>/g, '*__$1__*')
+            .replace(/<strong><em>(.*?)<\/em><\/strong>/g, '*_$1_*')
+            .replace(/<u><strong>(.*?)<\/strong><\/u>/g, '__*$1*__')
+            .replace(/<em>(.*?)<\/em>/g, '_$1_')
+            .replace(/<strong>(.*?)<\/strong>/g, '*$1*')
+            .replace(/<u>(.*?)<\/u>/g, '__$1__')
+            .replace(/<br\s*\/?>/g, '\n')
+            .replace(/<p>(.*?)<\/p>/g, '$1\n')
+            .replace(/<\/?[^>]+(>|$)/g, '');
 
         return text.trim();
-    };
+    }
 
     return (
-        <div>
-            <ReactQuill
-                theme="snow"
-                value={editorValue}
-                onChange={setEditorValue}
-                modules={modules}
-                formats={formats}
-            />
+        <div className="flex w-full overflow-hidden">
+            <div className="w-full max-w-[600px] sm:max-w-[550px]">
+                <ReactQuill
+                    theme="snow"
+                    value={editorValue}
+                    onChange={setEditorValue}
+                    modules={modules}
+                    formats={formats}
+                    className="editor-container"
+                />
+            </div>
         </div>
     );
 };

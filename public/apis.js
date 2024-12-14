@@ -14,6 +14,8 @@ const apis = {
     userSignUp: `${SERVER}user/signUp`,
     userLogin: `${SERVER}user/loginUser`,
     verifyToken: `${SERVER}user/verifyToken`,
+    resetPassword: `${SERVER}user/resetPassword`,
+    updateUser: `${SERVER}user/updateUser`,
 
     //CLIENT
     createClient: `${SERVER}user/createClient`,
@@ -35,6 +37,7 @@ const apis = {
     //GROUP
     createGroup: `${SERVER}user/createGroup`,
     updateGroupById: `${SERVER}user/updateGroupById/`,
+    addContactsToGroup: `${SERVER}user/addContactsToGroup`,
     deleteGroupById: `${SERVER}user/deleteGroupById/`,
     getGroupById: `${SERVER}user/getGroupById/`,
     getAllGroups: `${SERVER}user/getAllGroups`,
@@ -79,6 +82,7 @@ const apis = {
 
     //RECEIVED MESSAGES
     receivedMessagesHistory: `${SERVER}chat/receivedMessagesHistory`,
+    sendDirectMessage: `${SERVER}chat/sendDirectMessage`,
 };
 
 module.exports = apis;

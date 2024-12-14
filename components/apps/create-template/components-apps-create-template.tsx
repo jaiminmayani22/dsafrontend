@@ -1,6 +1,4 @@
 'use client';
-import IconEdit from '@/components/icon/icon-edit';
-import IconEye from '@/components/icon/icon-eye';
 import IconPlus from '@/components/icon/icon-plus';
 import IconTrashLines from '@/components/icon/icon-trash-lines';
 import { sortBy } from 'lodash';
@@ -9,7 +7,6 @@ import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import apis from '../../../public/apis';
-import IconCopy from '@/components/icon/icon-copy';
 import { useRouter } from 'next/navigation'
 
 const ComponentsAppsCreateTemplate = () => {
@@ -312,12 +309,6 @@ const ComponentsAppsCreateTemplate = () => {
                                     const { _id } = record as { _id: string };
                                     return (
                                         <div className="mx-auto flex w-max items-center gap-4">
-                                            <Link href="/apps/create-template/create-new" className="flex hover:text-info">
-                                                <IconEdit className="h-4.5 w-4.5" />
-                                            </Link>
-                                            <Link href="/apps/invoice/preview" className="flex hover:text-primary">
-                                                <IconEye />
-                                            </Link>
                                             <button
                                                 type="button"
                                                 className="flex hover:text-danger"

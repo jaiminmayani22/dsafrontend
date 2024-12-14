@@ -12,11 +12,13 @@ const ImageWithLayers: React.FC<ImageWithLayersProps> = ({ selectedTemplate, sel
         if (selectedTemplate && selectedRefTemplate) {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
+
             if (selectedTemplate.data && selectedTemplate.data.width && selectedTemplate.data.height) {
                 canvas.width = selectedTemplate.data.width;
                 canvas.height = selectedTemplate.data.height;
             } else if (typeof selectedTemplate === 'string') {
                 const img = new Image();
+                img.crossOrigin = "anonymous";
                 img.src = selectedTemplate;
                 img.onload = () => {
                     canvas.width = img.width;
@@ -31,7 +33,7 @@ const ImageWithLayers: React.FC<ImageWithLayersProps> = ({ selectedTemplate, sel
 
             if (ctx) {
                 const img = new Image();
-                // img.crossOrigin = "anonymous";
+                img.crossOrigin = "anonymous";
                 img.src = selectedTemplate.imageUrl ? selectedTemplate.imageUrl : selectedTemplate;
                 img.onload = () => {
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -162,7 +164,7 @@ const ImageWithLayers: React.FC<ImageWithLayersProps> = ({ selectedTemplate, sel
 
     return (
         <div>
-            {imageUrl && <img src={imageUrl} alt="Generated Preview" className="w-full h-auto" />}
+            {imageUrl && <img src={imageUrl} alt="Generated Preview" className="max-w-full max-h-screen" />}
         </div>
     );
 };

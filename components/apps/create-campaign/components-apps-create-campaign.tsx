@@ -15,7 +15,6 @@ import IconEye from '@/components/icon/icon-eye';
 import IconPlus from '@/components/icon/icon-plus';
 import IconTrashLines from '@/components/icon/icon-trash-lines';
 import IconCopy from '@/components/icon/icon-copy';
-import IconDownload from '@/components/icon/icon-download';
 import Dropdown from '@/components/dropdown';
 import { IRootState } from '@/store';
 import { Transition, Dialog } from '@headlessui/react';
@@ -52,12 +51,14 @@ const ComponentsAppsCreateCampaign = () => {
     const [businessHealth, setBusinessHealth] = useState<any>(null);
     const [search, setSearch] = useState<any>('');
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus>({
-        columnAccessor: 'firstName',
-        direction: 'asc',
+        columnAccessor: 'createdAt',
+        direction: 'desc',
     });
     const [duplicateCampaignName, setDuplicateCampaignName] = useState("");
     const [duplicateCampaignId, setDuplicateCampaignId] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [loadingRows, setLoadingRows] = useState<{ [key: string]: boolean }>({});
+    const [activeFilter, setActiveFilter] = useState<string>('All Campaigns');
 
     //FETCH ALL CAMPAIGNS
     useEffect(() => {
@@ -120,10 +121,13 @@ const ComponentsAppsCreateCampaign = () => {
     }, [search]);
 
     useEffect(() => {
-        const data2 = sortBy(initialRecords, sortStatus.columnAccessor);
-        setRecords(sortStatus.direction === 'desc' ? data2.reverse() : data2);
-        setPage(1);
-    }, [sortStatus]);
+        if (initialRecords?.length) {
+            const sortedRecords = sortBy(initialRecords, sortStatus.columnAccessor);
+            const finalRecords = sortStatus.direction === 'desc' ? sortedRecords.reverse() : sortedRecords;
+            setRecords(finalRecords);
+            setPage(1);
+        }
+    }, [sortStatus, initialRecords]);
 
     const showMessage = (msg = '', type = 'success') => {
         const toast: any = Swal.mixin({
@@ -207,10 +211,12 @@ const ComponentsAppsCreateCampaign = () => {
     };
 
     const sendMessage = async (_id: any) => {
+        setLoadingRows((prev) => ({ ...prev, [_id]: true }));
         try {
             const campaignIndex = items.findIndex((item: any) => item._id === _id);
             if (campaignIndex === -1) {
                 console.error('Campaign not found for ID:', _id);
+                setLoadingRows((prev) => ({ ...prev, [_id]: false }));
                 return;
             }
 
@@ -238,7 +244,9 @@ const ComponentsAppsCreateCampaign = () => {
             });
             showMessage(data.message);
         } catch (error) {
-            console.error('Error fetching contacts:', error);
+            showMessage('Error Sending Messages, Please Try again', 'error');
+        } finally {
+            setLoadingRows((prev) => ({ ...prev, [_id]: false }));
         }
     };
 
@@ -289,10 +297,69 @@ const ComponentsAppsCreateCampaign = () => {
         return imageExtensions.includes(extension);
     };
 
+    const handleCheckboxChange = (record: any) => {
+        const isSelected = selectedRecords.some((selected: any) => selected._id === record._id);
+        if (isSelected) {
+            setSelectedRecords(selectedRecords.filter((selected: any) => selected._id !== record._id));
+        } else {
+            setSelectedRecords([...selectedRecords, record]);
+        }
+    };
+
+    const isRecordSelected = (record: any) => {
+        return selectedRecords.some((selected: any) => selected._id === record._id);
+    };
+
+    const handleSelectAllChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            setSelectedRecords(records);
+        } else {
+            setSelectedRecords([]);
+        }
+    };
+    const isAllSelected = selectedRecords.length === records.length && records.length > 0;
+
+    const isVideoUrl = (url: any) => /\.(mp4|mov|avi|wmv|flv|mkv)$/i.test(url);
+
+    const isDocumentUrl = (url: any) => /\.(pdf|doc|docx|ppt|pptx|txt)$/i.test(url);
+
+    const filterRecords = (filter: string) => {
+        let filtered;
+        switch (filter) {
+            case 'All Campaigns':
+                filtered = initialRecords;
+                break;
+            case 'Re-target Campaigns':
+                filtered = initialRecords.filter((record: any) => record.name.endsWith('retarget'));
+                break;
+            case 'Immediate Campaigns':
+                filtered = initialRecords.filter((record: any) => record.type === 'immediate');
+                break;
+            case 'Schedule Campaigns':
+                filtered = initialRecords.filter((record: any) => record.type === 'schedule');
+                break;
+            case 'Freezed Campaign':
+                filtered = initialRecords.filter((record: any) => Array.isArray(record.freezedAudienceIds) && record.freezedAudienceIds.length > 0);
+                break;
+            default:
+                filtered = initialRecords;
+        }
+        setRecords(filtered);
+    };
+
+    const handleFilterChange = (filter: string) => {
+        setActiveFilter(filter);
+        filterRecords(filter);
+    };
+
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedDetails = records.slice(startIndex, endIndex);
+
     return (
         <div>
             <div>
-                <div className="mb-4.5 flex flex-col gap-5 px-5 md:flex-row md:items-center">
+                <div className="mb-4.5 flex flex-col gap-5 px-2 md:flex-row md:items-center">
                     <div className="flex items-center gap-2">
                         {selectedRecords.length > 0 && (
                             <button type="button" className="btn btn-danger gap-2" onClick={() => deleteRow()}>
@@ -310,26 +377,25 @@ const ComponentsAppsCreateCampaign = () => {
                                 btnClassName="btn btn-outline-success gap-2 dropdown-toggle"
                                 button={
                                     <>
-                                        All Campaigns
+                                        {activeFilter}
                                         <span>
                                             <IconCaretDown className="inline-block ltr:ml-1 rtl:mr-1" />
                                         </span>
                                     </>
                                 }
                             >
-                                <ul className="!min-w-[170px]">
-                                    <li>
-                                        <button type="button" >All Campaigns</button>
-                                    </li>
-                                    <li>
-                                        <button type="button" >Re-target Campaigns</button>
-                                    </li>
-                                    <li>
-                                        <button type="button" >Immediate Campaigns</button>
-                                    </li>
-                                    <li>
-                                        <button type="button" >Schedule Campaigns</button>
-                                    </li>
+                                <ul className="!min-w-[200px]">
+                                    {['All Campaigns', 'Re-target Campaigns', 'Immediate Campaigns', 'Schedule Campaigns', 'Freezed Campaign'].map(filter => (
+                                        <li key={filter}>
+                                            <button
+                                                type="button"
+                                                className={filter === activeFilter ? 'active-filter' : ''}
+                                                onClick={() => handleFilterChange(filter)}
+                                            >
+                                                {filter}
+                                            </button>
+                                        </li>
+                                    ))}
                                 </ul>
                             </Dropdown>
                         </div>
@@ -342,30 +408,87 @@ const ComponentsAppsCreateCampaign = () => {
                 <div className="datatables pagination-padding">
                     <DataTable
                         className="table-hover whitespace-nowrap"
-                        records={records}
+                        records={paginatedDetails}
                         columns={[
+                            {
+                                accessor: 'checkbox',
+                                title: (
+                                    <input
+                                        type="checkbox"
+                                        checked={isAllSelected}
+                                        onChange={handleSelectAllChange}
+                                    />
+                                ),
+                                render: (record) => (
+                                    <input
+                                        type="checkbox"
+                                        checked={isRecordSelected(record)}
+                                        onChange={() => handleCheckboxChange(record)}
+                                    />
+                                ),
+                            },
                             {
                                 accessor: 'name',
                                 sortable: true,
-                                render: ({ name, document, _id }) => (
-                                    document?.url ? (
+                                render: ({ name, document, _id }) => {
+                                    const getThumbnail = (url: any) => {
+                                        if (isImageUrl(url)) {
+                                            return (
+                                                <img
+                                                    className="h-8 w-8 rounded-full object-cover"
+                                                    src={url}
+                                                    alt="Document Thumbnail"
+                                                />
+                                            );
+                                        } else if (isVideoUrl(url)) {
+                                            return (
+                                                <div className="h-8 w-8 flex items-center justify-center bg-blue-200 rounded-full text-blue-600">
+                                                    {/* Video Icon */}
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        className="h-4 w-4"
+                                                        fill="currentColor"
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path d="M17 10.5V7c0-.5-.3-.9-.7-1.1-.4-.2-.9-.1-1.3.2L11.5 9.5c-.2.1-.4.2-.5.5s-.1.4.1.5l3.5 3.4c.4.4.9.4 1.3.2.4-.2.7-.6.7-1.1v-3.5l2.8 1.8c.3.2.6.4.8.7s.2.6.2.9v5.5c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2v-11c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v5.5l-3-1.9z" />
+                                                    </svg>
+                                                </div>
+                                            );
+                                        } else if (isDocumentUrl(url)) {
+                                            return (
+                                                <div className="h-8 w-8 flex items-center justify-center bg-yellow-200 rounded-full text-yellow-600">
+                                                    {/* Document Icon */}
+                                                    <svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        className="h-4 w-4"
+                                                        fill="currentColor"
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path d="M13 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V9l-5-7zm4 18H7V4h5v6h5v10z" />
+                                                    </svg>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    };
+
+                                    return (
                                         <div className="flex items-center font-semibold">
-                                            {isImageUrl(document?.url) && (
+                                            {document?.url && (
                                                 <div
-                                                    className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2"
-                                                    onClick={() => openModal(document?.url)}
+                                                    className={`w-max rounded-full bg-white-dark/10 p-0.5 ltr:mr-2 rtl:ml-2 ${isImageUrl(document.url) ? "cursor-pointer" : ""
+                                                        }`}
+                                                    onClick={() => {
+                                                        if (isImageUrl(document.url)) openModal(document.url);
+                                                    }}
                                                 >
-                                                    <img
-                                                        className="h-8 w-8 rounded-full object-cover"
-                                                        src={document?.url}
-                                                        alt="Document Thumbnail"
-                                                    />
+                                                    {getThumbnail(document.url)}
                                                 </div>
                                             )}
                                             <div>{name}</div>
                                         </div>
-                                    ) : <div>{name}</div>
-                                ),
+                                    );
+                                },
                             },
                             {
                                 accessor: 'type',
@@ -377,8 +500,28 @@ const ComponentsAppsCreateCampaign = () => {
                                 ),
                             },
                             {
-                                accessor: 'Schedule',
+                                accessor: 'schedule',
                                 sortable: true,
+                                render: ({ schedule }) => {
+                                    if (!schedule) return "-";
+                                    const date = new Date(schedule);
+                                    const formattedDate = date.toLocaleDateString('en-US', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric',
+                                    });
+                                    const formattedTime = date.toLocaleTimeString('en-US', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                    });
+
+                                    return (
+                                        <div>
+                                            <div className="text">{formattedDate}</div>
+                                            <div className="text-sm text-gray-500">{formattedTime}</div>
+                                        </div>
+                                    );
+                                },
                             },
                             {
                                 accessor: 'status',
@@ -394,16 +537,16 @@ const ComponentsAppsCreateCampaign = () => {
                                     </span>
                                 ),
                             },
+                            // {
+                            //     accessor: 'receiver',
+                            //     sortable: true,
+                            //     render: ({ receiver }) => (
+                            //         <span className="badge badge-outline-primary">{receiver ? receiver : 0}</span>
+                            //     ),
+                            // },
                             {
-                                accessor: 'receiver',
-                                sortable: true,
-                                render: ({ receiver }) => (
-                                    <span className="badge badge-outline-primary">{receiver ? receiver : 0}</span>
-                                ),
-                            },
-                            {
-                                accessor: 'countAudience',
                                 title: 'Messages',
+                                accessor: 'countAudience',
                                 sortable: true,
                                 render: ({ countAudience }) => (
                                     <span className="badge badge-outline-secondary">{countAudience}</span>
@@ -450,8 +593,12 @@ const ComponentsAppsCreateCampaign = () => {
                                 render: ({ _id, schedule, overallHealth, phonenumberHealth, wabaHealth, businessHealth, status }) => (
                                     <div className="mx-auto flex w-max items-center gap-4">
                                         {(schedule === "immediate" || status !== "completed") && (
-                                            <button className="flex hover:text-primary" onClick={() => sendMessage(_id)}>
-                                                <IconSend />
+                                            <button
+                                                className={`flex hover:text-primary ${loadingRows[_id] ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                onClick={() => sendMessage(_id)}
+                                                disabled={loadingRows[_id]}
+                                            >
+                                                {loadingRows[_id] ? 'Sending...' : <IconSend />}
                                             </button>
                                         )}
 
@@ -488,13 +635,16 @@ const ComponentsAppsCreateCampaign = () => {
                         totalRecords={initialRecords?.length}
                         recordsPerPage={pageSize}
                         page={page}
-                        onPageChange={(p) => setPage(p)}
+                        onPageChange={setPage}
                         recordsPerPageOptions={PAGE_SIZES}
-                        onRecordsPerPageChange={setPageSize}
+                        onRecordsPerPageChange={(size) => {
+                            setPageSize(size);
+                            setPage(1);
+                        }}
                         sortStatus={sortStatus}
-                        onSortStatusChange={setSortStatus}
-                        selectedRecords={selectedRecords}
-                        onSelectedRecordsChange={setSelectedRecords}
+                        onSortStatusChange={(status) => {
+                            setSortStatus(status);
+                        }}
                         paginationText={({ from, to, totalRecords }) => `Showing  ${from} to ${to} of ${totalRecords} entries`}
                     />
                 </div>

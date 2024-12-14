@@ -7,8 +7,12 @@ import Quill from 'quill';
 const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
 
 const Font = Quill.import('formats/font');
-Font.whitelist = ['serif', 'sans-serif', 'monospace', 'roboto', 'open-sans', 'lato'];
+Font.whitelist = ['serif', 'sans-serif', 'monospace'];
 Quill.register(Font, true);
+
+const Size = Quill.import('formats/size');
+Size.whitelist = ['small', false, 'large', 'huge'];
+Quill.register(Size, true);
 
 interface CustomEditorProps {
     value: string;
@@ -17,6 +21,7 @@ interface CustomEditorProps {
 
 const CustomEditor = ({ onChange, value }: CustomEditorProps) => {
     const [editorValue, setEditorValue] = useState(value || '');
+
     useEffect(() => {
         if (value !== editorValue) {
             setEditorValue(value || '');
@@ -34,19 +39,17 @@ const CustomEditor = ({ onChange, value }: CustomEditorProps) => {
 
     const modules = {
         toolbar: [
-            [{ 'font': ['serif', 'sans-serif', 'monospace', 'roboto', 'open-sans', 'lato'] }],
-            [{ 'size': ['small', false, 'large', 'huge', '12px', '14px', '16px', '18px', '24px', '36px'] }],
-            [{ 'color': [] }],
-            ['bold', 'italic', 'underline', 'strike'],
+            [{ font: Font.whitelist }],
+            [{ size: Size.whitelist }],
+            [{ color: [] }],
+            ['bold', 'italic', 'underline'],
             ['clean'],
         ],
     };
 
     const formats = [
-        'font',
-        'size',
-        'color',
-        'bold', 'italic', 'underline', 'strike',
+        'font', 'size', 'color', 'background',
+        'bold', 'italic', 'underline',
     ];
 
     return (

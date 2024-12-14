@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { Transition, Dialog } from '@headlessui/react';
 import IconX from '@/components/icon/icon-x';
 import IconPlus from '@/components/icon/icon-plus';
+import Select, { MultiValue } from 'react-select';
 
 const ComponentsAppsVariables = () => {
     const router = useRouter();
@@ -156,7 +157,7 @@ const ComponentsAppsVariables = () => {
                 setPage(1);
                 showMessage('Successfully deleted selected row(s).');
             } catch (error) {
-                showMessage('Failed to delete selected row(s). Please try again.','error');
+                showMessage('Failed to delete selected row(s). Please try again.', 'error');
             }
         }
     };
@@ -210,6 +211,7 @@ const ComponentsAppsVariables = () => {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
                         },
                         body: JSON.stringify(params),
                     });
@@ -273,21 +275,6 @@ const ComponentsAppsVariables = () => {
                                 sortable: true,
                             },
                             {
-                                accessor: 'createdAt',
-                                sortable: true,
-                                render: (row: any) => (
-                                    <div className="text-gray-700 dark:text-gray-300">
-                                        {new Date(row.createdAt).toLocaleString(undefined, {
-                                            year: 'numeric',
-                                            month: 'short',
-                                            day: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                        })}
-                                    </div>
-                                ),
-                            },
-                            {
                                 accessor: 'updatedAt',
                                 sortable: true,
                                 render: (row: any) => (
@@ -339,6 +326,7 @@ const ComponentsAppsVariables = () => {
 
             <Transition appear show={variableModel} as={Fragment}>
                 <Dialog as="div" open={variableModel} onClose={() => setVariableModel(false)} className="relative z-50">
+                    {/* Backdrop */}
                     <Transition.Child
                         as={Fragment}
                         enter="ease-out duration-300"
@@ -350,6 +338,8 @@ const ComponentsAppsVariables = () => {
                     >
                         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
                     </Transition.Child>
+
+                    {/* Modal */}
                     <div className="fixed inset-0 overflow-y-auto">
                         <div className="flex min-h-full items-center justify-center px-4 py-8">
                             <Transition.Child
@@ -361,7 +351,8 @@ const ComponentsAppsVariables = () => {
                                 leaveFrom="opacity-100 scale-100"
                                 leaveTo="opacity-0 scale-95"
                             >
-                                <Dialog.Panel className="panel w-full max-w-lg overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 p-0 text-gray-900 dark:text-gray-100 shadow-2xl bg-white dark:bg-gray-900">
+                                <Dialog.Panel className="w-full max-w-lg rounded-xl shadow-2xl bg-white dark:bg-gray-900">
+                                    {/* Close Button */}
                                     <button
                                         type="button"
                                         onClick={() => setVariableModel(false)}
@@ -370,37 +361,64 @@ const ComponentsAppsVariables = () => {
                                         <IconX />
                                     </button>
 
-                                    <div className="bg-gray-100 py-4 px-6 text-lg font-semibold text-gray-800 dark:bg-gray-800 dark:text-gray-200">
+                                    {/* Header */}
+                                    <div className="py-4 px-6 text-lg font-semibold text-gray-800 dark:bg-gray-800 dark:text-gray-200">
                                         {params?._id ? 'Edit Variable' : 'Add Variable'}
                                     </div>
 
+                                    {/* Content */}
                                     <div className="p-6 space-y-6">
                                         <form>
+                                            {/* Name Field */}
                                             <div className="mb-5">
                                                 <label htmlFor="name" className="block font-medium text-gray-700 dark:text-gray-300">
                                                     Name <span className="text-red-500">*</span>
                                                 </label>
-                                                <input
+                                                <Select
                                                     id="name"
-                                                    type="text"
-                                                    placeholder="Enter Name"
-                                                    className="form-input mt-1 block w-full rounded-md border border-gray-300 shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
-                                                    value={params?.name || ''}
-                                                    onChange={(e) => changeValue(e)}
+                                                    placeholder="Select a variable"
+                                                    options={[
+                                                        { value: "name", label: "Name" },
+                                                        { value: "logo", label: "Logo" },
+                                                        { value: "number", label: "Number" },
+                                                        { value: "email", label: "Email" },
+                                                        { value: "instagramId", label: "InstagramID" },
+                                                        { value: "facebookId", label: "FacebookID" },
+                                                        { value: "company_name", label: "Company Name" },
+                                                        { value: "city", label: "City" },
+                                                        { value: "district", label: "District" },
+                                                        { value: "address", label: "Address" },
+                                                        { value: "website", label: "website" },
+                                                    ]}
+                                                    value={
+                                                        params?.name
+                                                            ? { value: params.name, label: params.name.charAt(0).toUpperCase() + params.name.slice(1) }
+                                                            : null
+                                                    }
+                                                    onChange={(selectedOption: any) => {
+                                                        setParams((prev) => ({
+                                                            ...prev,
+                                                            name: selectedOption?.value || "",
+                                                        }));
+                                                    }}
+                                                    isSearchable
+                                                    isClearable
+                                                    className="mt-1 block w-full rounded-md border border-gray-300 shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
                                                 />
                                             </div>
 
+                                            {/* Buttons */}
                                             <div className="mt-8 flex justify-end space-x-4">
                                                 <button
                                                     type="button"
-                                                    className="btn btn-outline-danger px-4 py-2 border border-red-500 text-red-500 rounded-md hover:bg-red-500 dark:hover:bg-red-900"
+                                                    className="px-4 py-2 text-red-500 rounded-md border border-transparent hover:bg-red-500 hover:text-white transition-colors"
                                                     onClick={() => setVariableModel(false)}
                                                 >
                                                     Cancel
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    className="btn btn-primary px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                                                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                                                     onClick={saveVariable}
                                                 >
                                                     {params?._id ? 'Update' : 'Add'}

@@ -1,6 +1,6 @@
 import { FC } from 'react';
 
-interface IconVideoProps {
+interface IconVideoProps {  
     className?: string;
 }
 

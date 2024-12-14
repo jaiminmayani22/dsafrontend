@@ -32,6 +32,9 @@ import IconPlusCircle from '@/components/icon/icon-plus-circle';
 import 'flatpickr/dist/flatpickr.css';
 import WhatsAppMessagePreview from './components-whatsappPreview';
 import autoTable from 'jspdf-autotable';
+import IconClock from '@/components/icon/icon-clock';
+import IconAirplay from '@/components/icon/icon-airplay';
+import IconDownload from '@/components/icon/icon-download';
 
 const ComponentsAppsCampaignOverview = () => {
     const router = useRouter();
@@ -53,19 +56,21 @@ const ComponentsAppsCampaignOverview = () => {
     const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
     const [selectedRecords, setSelectedRecords] = useState<any[]>([]);
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus>({
-        columnAccessor: 'firstName',
+        columnAccessor: 'clientName',
         direction: 'asc',
     });
+
     const [retargetModal, setRetargetModal] = useState<any>(false);
     const [params, setParams] = useState<any>();
     const [date, setDate] = useState<any>(new Date().toISOString().slice(0, 16));
-    const [name, setName] = useState(items.name);
+    const [name, setName] = useState(`${items.name} - retarget`);
     const [type, setType] = useState(items.type || 'immediate');
     const [isEditing, setIsEditing] = useState(false);
     const [caption, setCaption] = useState(items.caption);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
 
     //FETCH ALL CAMPAIGNS
     useEffect(() => {
@@ -160,22 +165,23 @@ const ComponentsAppsCampaignOverview = () => {
             type: any;
             audienceIds: any[];
             audience: any;
+            countAudience: any;
             messageType: any;
             document: any;
             caption: any;
             button: any;
-            schedule?: any;          // Optional properties
+            schedule?: any;
             groups?: any;
             documentType?: any;
             selectedRefTemplate?: any;
             trigger?: boolean;
         }
-
         const data: Data = {
-            name,
-            type,
-            audienceIds: selectedRecords,
+            name: name,
+            type: type,
             audience: items.audience,
+            audienceIds: selectedRecords,
+            countAudience: selectedRecords.length,
             messageType: items.messageType,
             document: items.document,
             caption: items.caption,
@@ -220,6 +226,33 @@ const ComponentsAppsCampaignOverview = () => {
         setLoading(false);
     };
 
+    const runFreezedContacts = async () => {
+        setIsLoading(true);
+        try {
+            const campaign = { ...items, freezedSend: 'yes' };
+            const response = await fetch(apis.sendMessage, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify(campaign),
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                showMessage(data.message, 'error');
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            showMessage(data.message);
+            router.push('/apps/create-campaign');
+        } catch (error) {
+            showMessage('Error Sending Messages, Please Try again', 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const showMessage = (msg = '', type = 'success') => {
         const toast: any = Swal.mixin({
             toast: true,
@@ -237,38 +270,19 @@ const ComponentsAppsCampaignOverview = () => {
 
     const changeValue = (e: any) => {
         const { value, id, checked, type } = e.target;
+
         setParams((prevParams: any) => ({
             ...prevParams,
             [id]: type === "checkbox" ? checked : value,
         }));
+
         if (id === "name") {
-            setName(value);
+            const newName = value.endsWith(" - retarget") ? value : `${value} - retarget`;
+            setName(newName);
         } else if (id === "type") {
             setType(value);
         }
     };
-
-    const handleCheckboxChange = (record: any) => {
-        const isSelected = selectedRecords.some(selected => selected._id === record._id);
-        if (isSelected) {
-            setSelectedRecords(selectedRecords.filter(selected => selected._id !== record._id));
-        } else {
-            setSelectedRecords([...selectedRecords, record]);
-        }
-    };
-
-    const isRecordSelected = (record: any) => {
-        return selectedRecords.some(selected => selected._id === record._id);
-    };
-
-    const handleSelectAllChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.checked) {
-            setSelectedRecords(items.audienceIds);
-        } else {
-            setSelectedRecords([]);
-        }
-    };
-    const isAllSelected = selectedRecords.length === items.audienceIds?.length && items.audienceIds?.length > 0;
 
     const handleExportPdf = async () => {
         const pdf = new jsPDF() as jsPDF & { autoTable: Function };
@@ -373,24 +387,53 @@ const ComponentsAppsCampaignOverview = () => {
         setIsEditing(true);
     };
 
+    const clickBackButton = () => {
+        router.push('/apps/create-campaign');
+    };
+
     const handleInputChange = (e: any) => {
         setCaption(e.target.value);
     };
 
-    const filteredDetails = selectedStatus
-        ? details.filter((item: any) => item.status === selectedStatus)
-        : details;
+    const filteredDetails = selectedStatus === "freezed"
+        ? items.freezedAudienceIds
+        : selectedStatus
+            ? details.filter((item: any) => item.status === selectedStatus)
+            : details;
+
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedDetails = filteredDetails.slice(startIndex, endIndex);
+
+    const isImageUrl = (url: string | undefined): boolean => {
+        return /\.(jpg|jpeg|png|gif|bmp|svg|webp)$/i.test(url || "");
+    };
 
     return (
         <div>
             <div className="flex flex-col gap-5 px-2 md:flex-row md:items-center">
+                <button
+                    type="button"
+                    className="btn p-0 bg-transparent border-0"
+                    onClick={() => {
+                        clickBackButton();
+                    }}
+                >
+                    <IconArrowBackward className="text-primary" />
+                </button>
                 <div className="flex items-center gap-2">
                     <b>Campaign Overview</b>
                 </div>
                 <div className="flex items-center ltr:ml-auto rtl:mr-auto gap-2">
-                    <button type="button" className="btn btn-outline-primary gap-2" onClick={() => setIsModalOpen(true)}>
-                        View Image
-                    </button>
+                    {isImageUrl(items?.document?.url) && (
+                        <button
+                            type="button"
+                            className="btn btn-outline-primary gap-2"
+                            onClick={() => setIsModalOpen(true)}
+                        >
+                            View Image
+                        </button>
+                    )}
                     <button type="button" className="btn btn-primary gap-2" onClick={() => handleExportPdf()}>
                         <IconSend />
                         Export
@@ -406,9 +449,13 @@ const ComponentsAppsCampaignOverview = () => {
                         { label: "Triggered Campaign", content: `${items.type}`, icon: <IconCalendar /> },
                         {
                             label: "Proceed At",
-                            content: `${items.schedule !== "" ? items.schedule : new Date(items.createdAt).toLocaleString('en-GB', {
-                                year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-                            })}`,
+                            content: `${items.schedule !== "" ?
+                                new Date(items.schedule).toLocaleString('en-GB', {
+                                    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                                }) :
+                                new Date(items.createdAt).toLocaleString('en-GB', {
+                                    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                                })}`,
                             icon: <IconMenuDatatables />
                         }].map((item, index) => (
                             <div className="panel p-2 flex items-center" key={index}>
@@ -436,9 +483,18 @@ const ComponentsAppsCampaignOverview = () => {
                         {
                             label: "Overall",
                             value: `${((details.length / items.countAudience) * 100).toFixed(2)}%`,
-                            count: items.countAudience,
+                            count: details.length + " / " + items.countAudience,
                             icon: <IconListCheck />,
                             status: null,
+                        },
+                        {
+                            label: "Accepted",
+                            value: details.length > 0
+                                ? `${((details.filter((item: any) => item.status === "accepted").length / details.length) * 100).toFixed(2)}%`
+                                : "0%",
+                            count: details.filter((item: any) => item.status === "accepted").length,
+                            icon: <IconDownload />,
+                            status: "accepted",
                         },
                         {
                             label: "Sent",
@@ -450,7 +506,7 @@ const ComponentsAppsCampaignOverview = () => {
                             status: "sent",
                         },
                         {
-                            label: "Delivered",
+                            label: "Unread",
                             value: details.length > 0
                                 ? `${((details.filter((item: any) => item.status === "delivered").length / details.length) * 100).toFixed(2)}%`
                                 : "0%",
@@ -470,11 +526,11 @@ const ComponentsAppsCampaignOverview = () => {
                         {
                             label: "Replied",
                             value: details.length > 0
-                                ? `${((details.filter((item: any) => item.status === "accepted").length / details.length) * 100).toFixed(2)}%`
+                                ? `${((details.filter((item: any) => item.status === "replied").length / details.length) * 100).toFixed(2)}%`
                                 : "0%",
-                            count: details.filter((item: any) => item.status === "accepted").length,
+                            count: details.filter((item: any) => item.status === "replied").length,
                             icon: <IconArrowBackward />,
-                            status: "accepted",
+                            status: "replied",
                         },
                         {
                             label: "Failed",
@@ -495,7 +551,7 @@ const ComponentsAppsCampaignOverview = () => {
                             status: "rejected",
                         },
                     ].map((item, index) => (
-                        <div className="panel p-2 flex items-center font-semibold" key={index} onClick={() => setSelectedStatus(item.status)}>
+                        <div className="panel p-2 flex items-center font-semibold" key={index} onClick={() => { setSelectedStatus(item.status); setSelectedRecords([]); }}>
                             <div className="grid h-10 w-10 shrink-0 place-content-center">
                                 {item.icon}
                             </div>
@@ -514,16 +570,66 @@ const ComponentsAppsCampaignOverview = () => {
                         <b>Campaign Overview</b>
                     </div>
                     <div className="flex items-center ltr:ml-auto rtl:mr-auto gap-2">
-                        <span className="btn btn-outline-success">
+                        <span className="btn btn-outline-success h-10 min-w-[120px] flex items-center justify-center">
                             Total : {details?.length}
                         </span>
-                        {(selectedStatus === 'failed' && (
-                            <button type="button" className="btn btn-primary flex items-center gap-x-2" onClick={() => setRetargetModal(true)}>
+                        {(selectedStatus === 'failed' || selectedStatus === 'read') && items?.freezedAudienceIds?.length === 0 && (
+                            <button
+                                type="button"
+                                className={`btn btn-primary h-10 min-w-[120px] flex items-center gap-x-2 ${selectedRecords.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                onClick={() => {
+                                    setRetargetModal(true);
+                                    setParams(items);
+                                    const newName = items.name.endsWith(" - retarget") ? items.name : `${items.name} - retarget`;
+                                    setName(newName);
+                                    setType(items.type);
+                                }}
+                                disabled={selectedRecords.length === 0}
+                            >
                                 <IconPlusCircle />
                                 Re-target
                             </button>
-                        ))}
-                        <button type="button" className="btn btn-warning flex items-center gap-x-2" onClick={() => handleExportNumberPdf()}>
+                        )}
+                        {items?.freezedAudienceIds?.length > 0 && (
+                            <>
+                                <button
+                                    type="button"
+                                    className="btn btn-primary h-10 min-w-[120px] flex items-center gap-x-2"
+                                    onClick={() => {
+                                        setSelectedStatus("freezed");
+                                        setSelectedRecords([]);
+                                    }}
+                                >
+                                    Show Freezed Contacts: {items.freezedAudienceIds.length}
+                                    <IconClock />
+                                </button>
+                                {selectedStatus === "freezed" && (
+                                    <button
+                                        type="button"
+                                        className={`btn btn-primary h-10 min-w-[120px] flex items-center gap-x-2 ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+                                        onClick={runFreezedContacts}
+                                        disabled={isLoading}
+                                    >
+                                        {isLoading ? (
+                                            <>
+                                                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                                Loading...
+                                            </>
+                                        ) : (
+                                            <>
+                                                Trigger for Freezed Contacts
+                                                <IconSend />
+                                            </>
+                                        )}
+                                    </button>
+                                )}
+                            </>
+                        )}
+                        <button
+                            type="button"
+                            className="btn btn-warning h-10 min-w-[120px] flex items-center gap-x-2"
+                            onClick={() => handleExportNumberPdf()}
+                        >
                             Export
                             <IconSend />
                         </button>
@@ -531,79 +637,165 @@ const ComponentsAppsCampaignOverview = () => {
                 </div>
                 <br />
                 <div className="datatables pagination-padding">
-                    <DataTable
-                        className="table-hover whitespace-nowrap"
-                        records={filteredDetails}
-                        columns={[
-                            {
-                                accessor: 'checkbox',
-                                title: (
-                                    <input
-                                        type="checkbox"
-                                        checked={isAllSelected}
-                                        onChange={handleSelectAllChange}
-                                    />
-                                ),
-                                render: (record) => (
-                                    <input
-                                        type="checkbox"
-                                        checked={isRecordSelected(record)}
-                                        onChange={() => handleCheckboxChange(record)}
-                                    />
-                                ),
-                            },
-                            {
-                                accessor: 'clientName',
-                                sortable: true
-                            },
-                            {
-                                accessor: 'mobileNumber',
-                                sortable: true
-                            },
-                            {
-                                accessor: 'status',
-                                render: (record) => {
-                                    const { status } = record as { status: string };
-                                    const statusStyles: { [key: string]: string } = {
-                                        sent: 'btn btn-primary', // Blue
-                                        delivered: 'btn btn-success', // Green
-                                        read: 'btn btn-info', // Light blue
-                                        failed: 'btn btn-danger', // Red
-                                        undelivered: 'btn btn-warning', // Yellow
-                                        acknowledged: 'btn btn-dark', // Dark gray
-                                        deleted: 'btn btn-secondary', // Gray
-                                        expired: 'btn btn-outline-warning', // Outline Yellow
-                                        rejected: 'btn btn-outline-danger', // Outline Red
-                                        pending: 'btn btn-warning', // Yellow
-                                        cancelled: 'btn btn-outline-secondary', // Outline Gray
-                                        default: 'btn btn-light' // Light Gray for unknown statuses
-                                    };
-
-                                    const buttonClass = statusStyles[status as keyof typeof statusStyles] || statusStyles.default;
-                                    return (
-                                        <button className={buttonClass} disabled>
-                                            {status
-                                                .charAt(0)
-                                                .toUpperCase() + status.slice(1).replace(/_/g, ' ')}
-                                        </button>
-                                    );
+                    {selectedStatus === "freezed" ?
+                        <DataTable
+                            className="table-hover whitespace-nowrap"
+                            records={paginatedDetails}
+                            columns={[
+                                // {
+                                //     accessor: 'checkbox',
+                                //     title: (
+                                //         <input
+                                //             type="checkbox"
+                                //             checked={isAllSelected}
+                                //             onChange={handleSelectAllChange}
+                                //         />
+                                //     ),
+                                //     render: (row: any) => (
+                                //         <input
+                                //             type="checkbox"
+                                //             checked={selectedRecords.includes(row._id)}
+                                //             onChange={(e) => {
+                                //                 const { checked } = e.target;
+                                //                 if (checked) {
+                                //                     setSelectedRecords((prev) => [...prev, row._id]);
+                                //                 } else {
+                                //                     setSelectedRecords((prev) =>
+                                //                         prev.filter((id) => id !== row._id)
+                                //                     );
+                                //                 }
+                                //             }}
+                                //         />
+                                //     ),
+                                // },
+                                {
+                                    accessor: 'name',
+                                    sortable: true
                                 },
-                            },
-                            {
-                                accessor: 'reason',
-                            },
-                        ]}
-                        highlightOnHover
-                        totalRecords={items?.audienceIds?.length}
-                        recordsPerPage={pageSize}
-                        page={page}
-                        onPageChange={(p) => setPage(p)}
-                        recordsPerPageOptions={PAGE_SIZES}
-                        onRecordsPerPageChange={setPageSize}
-                        sortStatus={sortStatus}
-                        onSortStatusChange={setSortStatus}
-                        paginationText={({ from, to, totalRecords }) => `Showing  ${from} to ${to} of ${totalRecords} entries`}
-                    />
+                                {
+                                    accessor: 'whatsapp_number',
+                                    sortable: true
+                                }
+                            ]}
+                            highlightOnHover
+                            totalRecords={filteredDetails.length}
+                            recordsPerPage={pageSize}
+                            page={page}
+                            onPageChange={(p) => setPage(p)}
+                            recordsPerPageOptions={PAGE_SIZES}
+                            onRecordsPerPageChange={(size) => {
+                                setPageSize(size);
+                                setPage(1);
+                            }}
+                            sortStatus={sortStatus}
+                            onSortStatusChange={setSortStatus}
+                            paginationText={({ from, to, totalRecords }) => `Showing  ${from} to ${to} of ${totalRecords} entries`}
+                        />
+                        :
+                        <DataTable
+                            className="table-hover whitespace-nowrap"
+                            records={paginatedDetails}
+                            columns={[
+                                {
+                                    accessor: 'checkbox',
+                                    title: (
+                                        <input
+                                            type="checkbox"
+                                            checked={filteredDetails.length > 0 && selectedRecords.length === filteredDetails.length}
+                                            onChange={(e) => {
+                                                const { checked } = e.target;
+                                                if (checked) {
+                                                    setSelectedRecords(filteredDetails.map((record: any) => record.mobileNumber)); // Select all
+                                                } else {
+                                                    setSelectedRecords([]); // Deselect all
+                                                }
+                                            }}
+                                        />
+                                    ),
+                                    render: (row: any) => (
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedRecords.includes(row.mobileNumber)}
+                                            onChange={(e) => {
+                                                const { checked } = e.target;
+                                                if (checked) {
+                                                    setSelectedRecords((prev) => [...prev, row.mobileNumber]);
+                                                } else {
+                                                    setSelectedRecords((prev) => prev.filter((id) => id !== row.mobileNumber));
+                                                }
+                                            }}
+                                        />
+                                    ),
+                                },
+                                {
+                                    accessor: 'clientName',
+                                    sortable: true
+                                },
+                                {
+                                    accessor: 'mobileNumber',
+                                    sortable: true
+                                },
+                                {
+                                    accessor: 'status',
+                                    render: (record) => {
+                                        const { status } = record as { status: string };
+                                        const statusStyles: { [key: string]: string } = {
+                                            sent: 'background-color: #007bff; color: white;', // Blue
+                                            delivered: 'background-color: #28a745; color: white;', // Green
+                                            read: 'background-color: #17a2b8; color: white;', // Light blue
+                                            failed: 'background-color: #dc3545; color: white;', // Red
+                                            undelivered: 'background-color: #ffc107; color: black;', // Yellow
+                                            acknowledged: 'background-color: #343a40; color: white;', // Dark gray
+                                            deleted: 'background-color: #6c757d; color: white;', // Gray
+                                            expired: 'background-color: #ffc107; border: 1px solid #ffc107; color: black;', // Outline Yellow
+                                            rejected: 'background-color: #dc3545; border: 1px solid #dc3545; color: white;', // Outline Red
+                                            pending: 'background-color: #ffc107; color: black;', // Yellow
+                                            cancelled: 'background-color: #6c757d; border: 1px solid #6c757d; color: white;', // Outline Gray
+                                            default: 'background-color: #f8f9fa; color: black;' // Light Gray for unknown statuses
+                                        };
+
+                                        const style = statusStyles[status as keyof typeof statusStyles] || statusStyles.default;
+
+                                        return (
+                                            <span
+                                                style={{
+                                                    display: 'inline-block',
+                                                    padding: '5px 10px',
+                                                    borderRadius: '4px',
+                                                    textAlign: 'center',
+                                                    fontWeight: 'bold',
+                                                    ...style.split(';').reduce((acc: any, rule: any) => {
+                                                        const [key, value] = rule.split(':').map((s: any) => s.trim());
+                                                        if (key) acc[key] = value;
+                                                        return acc;
+                                                    }, {} as React.CSSProperties)
+                                                }}
+                                            >
+                                                {status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')}
+                                            </span>
+                                        );
+                                    },
+                                },
+                                {
+                                    accessor: 'reason',
+                                    sortable: true
+                                },
+                            ]}
+                            highlightOnHover
+                            totalRecords={filteredDetails.length}
+                            recordsPerPage={pageSize}
+                            page={page}
+                            onPageChange={(p) => setPage(p)}
+                            recordsPerPageOptions={PAGE_SIZES}
+                            onRecordsPerPageChange={(size) => {
+                                setPageSize(size);
+                                setPage(1);
+                            }}
+                            sortStatus={sortStatus}
+                            onSortStatusChange={setSortStatus}
+                            paginationText={({ from, to, totalRecords }) => `Showing  ${from} to ${to} of ${totalRecords} entries`}
+                        />
+                    }
                 </div>
             </div>
 
@@ -761,7 +953,7 @@ const ComponentsAppsCampaignOverview = () => {
                                                 <button
                                                     type="button"
                                                     className="btn btn-outline-danger px-4 py-2 border border-red-500 text-red-500 rounded-md hover:bg-red-500 dark:hover:bg-red-900 transition duration-200"
-                                                    onClick={() => setRetargetModal(false)}
+                                                    onClick={() => { setRetargetModal(false); setLoading(false); }}
                                                 >
                                                     Cancel
                                                 </button>
@@ -813,7 +1005,8 @@ const ComponentsAppsCampaignOverview = () => {
 
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70">
-                    <div className="relative">
+                    <div
+                        className="relative">
                         <WhatsAppMessagePreview
                             selectedTemplate={items?.document?.url}
                             selectedRefTemplate={items?.selectedRefTemplate}

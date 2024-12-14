@@ -49,6 +49,7 @@ const ComponentsAppsCreateNewCampaign = () => {
     const [selectedAudience, setSelectedAudience] = useState<any>("");
     const [messageType, setMessageType] = useState<any>("");
     const [groupNames, setGroupNames] = useState<any>([]);
+    const [contacts, setContacts] = useState<any>([]);
     const [editorText, setEditorText] = useState<any>('');
     const [audienceCount, setAudienceCount] = useState<any>('');
     const [referenceTemplates, setReferenceTemplate] = useState<any>('');
@@ -89,6 +90,36 @@ const ComponentsAppsCreateNewCampaign = () => {
         };
 
         fetchGroupNames();
+    }, []);
+
+    //get all contacts
+    useEffect(() => {
+        const fetchAllContacts = async () => {
+            try {
+                const response = await fetch(apis.getAllClient, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                });
+                const data = await response.json();
+                if (response.status === 401 && data.message === "Token expired! Please login again") {
+                    showMessage(data.message, 'error');
+                    router.push('/auth/boxed-signin');
+                    throw new Error('Token expired');
+                }
+                if (!response.ok) {
+                    showMessage(data.message, 'error');
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                setContacts(data.data);
+            } catch (error) {
+                console.error('Error fetching group names:', error);
+            }
+        };
+
+        fetchAllContacts();
     }, []);
 
     //FETCH REFERENCE TEMPLATES
@@ -159,6 +190,16 @@ const ComponentsAppsCreateNewCampaign = () => {
     };
     const selectedGroupIds = data.groups ? data.groups.split(', ') : [];
 
+    const handleContactsChange = (newValue: MultiValue<GroupOption>) => {
+        const selectedOptions = newValue as GroupOption[];
+        const contactsString = selectedOptions.map(option => option.value).join(', ');
+        setData((prev: any) => ({
+            ...prev,
+            quickAudience: contactsString,
+        }));
+    };
+    const selectedContacts = data.quickAudience ? data.quickAudience.split(', ') : [];
+
     interface CustomOptionProps extends OptionProps<any> {
         data: { label: string; imageUrl: string };
     }
@@ -201,22 +242,62 @@ const ComponentsAppsCreateNewCampaign = () => {
 
     const saveCampaign = async (send: any) => {
         setLoading(true);
+        if (!data.name) {
+            showMessage('Campaign name is required', 'error');
+            setLoading(false);
+            return;
+        }
 
+        if (!data.type) {
+            showMessage('Campaign type is required', 'error');
+            setLoading(false);
+            return;
+        }
         const formData = new FormData();
         formData.append('name', data.name);
         formData.append('type', data.type);
 
+        if (data.type === 'schedule' && !date2) {
+            showMessage('Schedule date is required for Scheduled Campaigns', 'error');
+            setLoading(false);
+            return;
+        }
         if (data.type === 'schedule') {
             formData.append('schedule', date2);
         }
 
+        if (!selectedAudience) {
+            showMessage('Please select Audience', 'error');
+            setLoading(false);
+            return;
+        }
         formData.append('audience', selectedAudience);
 
         if (selectedAudience === 'group') {
+            if (!data.groups || data.groups.length === 0) {
+                showMessage('Please select at least one group for Audience', 'error');
+                setLoading(false);
+                return;
+            }
             formData.append('groups', data.groups);
         }
 
+        if (selectedAudience === 'quickAudience') {
+            if (!data.quickAudience || data.quickAudience.length === 0) {
+                showMessage('Quick audience cannot be empty', 'error');
+                setLoading(false);
+                return;
+            }
+            formData.append('quickAudience', data.quickAudience);
+        }
+
         formData.append('messageType', messageType);
+
+        if (!editorText.trim()) {
+            showMessage('Caption cannot be empty', 'error');
+            setLoading(false);
+            return;
+        }
         formData.append('caption', editorText);
         formData.append('button', data.button);
 
@@ -225,9 +306,19 @@ const ComponentsAppsCreateNewCampaign = () => {
         }
 
         if (messageType === 'marketing') {
+            if (!data.documentType) {
+                showMessage('Document type is required for Marketing Campaigns', 'error');
+                setLoading(false);
+                return;
+            }
             formData.append('documentType', data.documentType);
             formData.append('document', selectedDocument);
         } else {
+            if (!selectedTemplate?.file) {
+                showMessage('Template file is required', 'error');
+                setLoading(false);
+                return;
+            }
             formData.append('document', selectedTemplate.file);
             formData.append(
                 'selectedRefTemplate',
@@ -252,12 +343,14 @@ const ComponentsAppsCreateNewCampaign = () => {
             const newTemplate = await response.json();
             if (response.ok) {
                 showMessage(newTemplate.message);
-                router.push('/apps/create-campaign');
             } else {
+                setLoading(false);
                 showMessage(newTemplate.message, 'error');
             }
+            router.push('/apps/create-campaign');
         } catch (error) {
-            showMessage('Error uploading template', 'error');
+            showMessage("Failed to Create Campaign, PLease try again.", 'error');
+            router.push('/apps/create-campaign');
         }
         setLoading(false);
     };
@@ -281,8 +374,8 @@ const ComponentsAppsCreateNewCampaign = () => {
                 });
             };
         }
-        setSelectedImageUrl("");
-        setSelectedRefTemplate("");
+        setSelectedImageUrl('');
+        setSelectedRefTemplate('');
     };
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -355,20 +448,15 @@ const ComponentsAppsCreateNewCampaign = () => {
     const formattedText = formatTextForDisplay(editorText);
     function formatTextForDisplay(text: any) {
         return text
-            .replace(/\*__(.*?)__\*/g, '<strong><u>$1</u></strong>')   // Bold + Underline
-            .replace(/~\*(.*?)\*~/g, '<del><strong>$1</strong></del>') // Bold + Strikethrough
-            .replace(/_\*(.*?)\*_/g, '<em><strong>$1</strong></em>')   // Bold + Italic
-            .replace(/~_(.*?)_~/g, '<del><em>$1</em></del>')           // Italic + Strikethrough
-            .replace(/__~(.*?)~__/g, '<u><del>$1</del></u>')           // Underline + Strikethrough
-            .replace(/__\*(.*?)\*__/g, '<u><strong>$1</strong></u>')   // Bold + Underline
-            .replace(/\*~(.*?)~\*/g, '<strong><del>$1</del></strong>') // Bold + Strikethrough
-            .replace(/\*_(.*?)_\*/g, '<strong><em>$1</em></strong>')   // Bold + Italic
-            .replace(/~(.*?)~/g, '<del>$1</del>')                      // Strikethrough only
-            .replace(/\*(.*?)\*/g, '<strong>$1</strong>')              // Bold only
-            .replace(/_(.*?)_/g, '<em>$1</em>')                        // Italic only
-            .replace(/__(.*?)__/g, '<u>$1</u>')                        // Underline only
-            .replace(/\n/g, '<br>');                                   // Line breaks
-    };
+            .replace(/\*___(.*?)___\*/g, '<strong><em><u>$1</u></em></strong>')   // Bold + Italic + Underline
+            .replace(/\*__(.*?)__\*/g, '<strong><u>$1</u></strong>')               // Bold + Underline
+            .replace(/\*_(.*?)_\*/g, '<strong><em>$1</em></strong>')               // Bold + Italic
+            .replace(/__\*(.*?)\*__/g, '<u><strong>$1</strong></u>')               // Bold + Underline
+            .replace(/_(.*?)_/g, '<em>$1</em>')                                     // Italic only
+            .replace(/\*(.*?)\*/g, '<strong>$1</strong>')                           // Bold only
+            .replace(/__(.*?)__/g, '<u>$1</u>')                                     // Underline only
+            .replace(/\n/g, '<br>');                                                // Line breaks
+    }
 
     return (
         <div>
@@ -471,9 +559,9 @@ const ComponentsAppsCreateNewCampaign = () => {
                                         case "details":
                                             return (
                                                 <form className="space-y-5">
-                                                    <div className="flex sm:flex-row flex-col">
-                                                        <label htmlFor="campaignName" className="mb-0 sm:w-1/4 sm:ltr:mr-2 rtl:ml-2">
-                                                            Campaign Name
+                                                    <div className="flex sm:flex-row flex-col items-start">
+                                                        <label htmlFor="campaignName" className="mb-1 sm:w-1/3 sm:ltr:mr-2 rtl:ml-2 text-gray-700 dark:text-gray-300">
+                                                            Name
                                                         </label>
                                                         <input
                                                             id="name"
@@ -482,43 +570,44 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                             placeholder="Enter Name"
                                                             value={data.name}
                                                             onChange={handleInputChange}
-                                                            className="form-input flex-1 sm:ml-2"
+                                                            className="form-input sm:ml-2 flex-1"
                                                         />
                                                     </div>
-                                                    <div className="flex sm:flex-row flex-col">
-                                                        <label className="sm:w-1/4 sm:ltr:mr-2 rtl:ml-2">Campaign Type</label>
-                                                        <div className="flex space-x-4 sm:ml-2">
-                                                            <div className="mb-2">
-                                                                <label className="inline-flex mt-1 cursor-pointer">
-                                                                    <input
-                                                                        type="radio"
-                                                                        name="type"
-                                                                        value="immediate"
-                                                                        className="form-radio"
-                                                                        checked={data.type === 'immediate'}
-                                                                        onChange={handleInputChange}
-                                                                    />
-                                                                    <span className="text-white-dark ml-2">Immediate</span>
-                                                                </label>
+
+                                                    <div className="flex sm:flex-row flex-col items-start">
+                                                        <label className="mb-1 sm:w-1/3 sm:ltr:mr-2 rtl:ml-2 text-gray-700 dark:text-gray-300">Campaign Type</label>
+                                                        <div className="flex space-x-2 ml-2">
+                                                            <div className="inline-flex items-center">
+                                                                <input
+                                                                    type="radio"
+                                                                    name="type"
+                                                                    value="immediate"
+                                                                    className="form-radio"
+                                                                    checked={data.type === 'immediate'}
+                                                                    onChange={handleInputChange}
+                                                                />
+                                                                <span className="text-gray-700 dark:text-gray-300 ml-2">Immediate</span>
                                                             </div>
-                                                            <div className="mb-2">
-                                                                <label className="inline-flex mt-1 cursor-pointer">
-                                                                    <input
-                                                                        type="radio"
-                                                                        name="type"
-                                                                        value="schedule"
-                                                                        className="form-radio"
-                                                                        checked={data.type === 'schedule'}
-                                                                        onChange={handleInputChange}
-                                                                    />
-                                                                    <span className="text-white-dark ml-2">Schedule</span>
-                                                                </label>
+                                                            <div className="inline-flex items-center">
+                                                                <input
+                                                                    type="radio"
+                                                                    name="type"
+                                                                    value="schedule"
+                                                                    className="form-radio"
+                                                                    checked={data.type === 'schedule'}
+                                                                    onChange={handleInputChange}
+                                                                />
+                                                                <span className="text-gray-700 dark:text-gray-300 ml-2">Schedule</span>
                                                             </div>
                                                         </div>
                                                     </div>
+
                                                     {data.type === 'schedule' && (
-                                                        <div className="flex sm:flex-row flex-col">
-                                                            <label htmlFor="scheduleTime" className="mb-0 sm:w-1/4 sm:ltr:mr-2 rtl:ml-2">
+                                                        <div className="flex sm:flex-row flex-col items-start">
+                                                            <label
+                                                                htmlFor="scheduleTime"
+                                                                className="sm:w-1/ sm:ltr:mr-2 rtl:ml-2 text-gray-700 dark:text-gray-300"
+                                                            >
                                                                 Schedule For
                                                             </label>
                                                             <Flatpickr
@@ -530,19 +619,21 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                     minDate: new Date(),
                                                                 }}
                                                                 defaultValue={date2}
-                                                                className="form-input sm:ml-2 flex-1"
+                                                                className="form-input sm:ml-2 flex-1 ml-2"
                                                                 onChange={(date2) => setDate2(date2)}
                                                             />
                                                         </div>
                                                     )}
-                                                    <div className="flex sm:flex-row flex-col">
-                                                        <label className="font-semibold sm:w-1/4 sm:ltr:mr-2 rtl:ml-2"> </label>
-                                                        <label className="inline-flex mb-0 cursor-pointer">
-                                                            <button type="button" className="btn btn-success !mt-6" onClick={() => setSelectedTab('audience')}>
-                                                                Next
-                                                                <IconArrowForward></IconArrowForward>
-                                                            </button>
-                                                        </label>
+
+                                                    <div className="flex sm:flex-row flex-col items-center justify-end space-x-2 mt-4">
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-success flex items-center gap-2 py-2 px-4 rounded-lg bg-green-600 text-white hover:bg-green-700 transition duration-300"
+                                                            onClick={() => setSelectedTab('audience')}
+                                                        >
+                                                            Next
+                                                            <IconArrowForward />
+                                                        </button>
                                                     </div>
                                                 </form>
                                             );
@@ -591,6 +682,19 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                     <span className="text-white-dark ml-2">Favorite Contacts</span>
                                                                 </label>
                                                             </div>
+                                                            <div className="mb-2">
+                                                                <label className="inline-flex mt-1 cursor-pointer">
+                                                                    <input
+                                                                        type="radio"
+                                                                        name="audience"
+                                                                        className="form-radio"
+                                                                        value="quickAudience"
+                                                                        checked={selectedAudience === "quickAudience"}
+                                                                        onChange={() => setSelectedAudience("quickAudience")}
+                                                                    />
+                                                                    <span className="text-white-dark ml-2">Quick Audience</span>
+                                                                </label>
+                                                            </div>
                                                         </div>
                                                     </div>
 
@@ -607,7 +711,7 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                 }))}
                                                                 isMulti
                                                                 onChange={handleGroupNameChange}
-                                                                isSearchable={false}
+                                                                isSearchable={true}
                                                                 value={groupNames
                                                                     .filter((group: any) => selectedGroupIds.includes(group.groupId))
                                                                     .map((group: any) => ({
@@ -616,6 +720,45 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                     }))}
                                                                 className="mt-1"
                                                             />
+                                                        </div>
+                                                    )}
+                                                    {selectedAudience === "quickAudience" && (
+                                                        <div className="flex flex-col gap-4 mt-4 sm:flex-row">
+                                                            <div className="flex flex-col sm:w-3/4">
+                                                                <label
+                                                                    htmlFor="contacts"
+                                                                    className="text-gray-700 font-medium mb-2 sm:mb-0 sm:ltr:mr-2 sm:rtl:ml-2"
+                                                                >
+                                                                    Select Contacts from Dropdown
+                                                                </label>
+                                                                <Select
+                                                                    id="contacts"
+                                                                    placeholder="Select an option"
+                                                                    options={contacts?.map((contact: any) => ({
+                                                                        value: contact.whatsapp_number,
+                                                                        label: `${contact.whatsapp_number} - ${contact.name}`,
+                                                                    }))}
+                                                                    isMulti
+                                                                    onChange={handleContactsChange}
+                                                                    isSearchable={true}
+                                                                    value={contacts
+                                                                        .filter((contact: any) => selectedContacts.includes(contact.whatsapp_number))
+                                                                        .map((contact: any) => ({
+                                                                            value: contact.whatsapp_number,
+                                                                            label: `${contact.whatsapp_number} - ${contact.name}`,
+                                                                        }))}
+                                                                    className="mt-1"
+                                                                />
+                                                            </div>
+
+                                                            <div className="sm:w-1/4 mt-1 sm:mt-0">
+                                                                <label
+                                                                    htmlFor="contacts"
+                                                                    className="block text-gray-700"
+                                                                >
+                                                                    {`Selected Contacts Count: ${selectedContacts.length}`}
+                                                                </label>
+                                                            </div>
                                                         </div>
                                                     )}
                                                     <div className="flex sm:flex-row flex-col justify-between">
@@ -636,11 +779,11 @@ const ComponentsAppsCreateNewCampaign = () => {
                                             );
                                         case "message":
                                             return (
-                                                <form className="space-y-5">
-                                                    <div className="flex sm:flex-row flex-col items-center">
-                                                        <label className="sm:w-1/4 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300">Message Type</label>
-                                                        <div className="flex space-x-6 sm:ml-2">
-                                                            <label className="inline-flex items-center cursor-pointer">
+                                                <form className="space-y-5 w-full">
+                                                    <div className="flex sm:flex-row flex-col items-center w-full">
+                                                        <label className="sm:w-1/2 sm:ltr:mr-4 rtl:ml-2 text-gray-700 dark:text-gray-300">Message Type</label>
+                                                        <div className="flex space-x-6 w-full">
+                                                            <label className="inline-flex items-center cursor-pointer w-full">
                                                                 <input
                                                                     type="radio"
                                                                     name="marketing"
@@ -653,9 +796,9 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                         setSelectedRefTemplate('');
                                                                     }}
                                                                 />
-                                                                <span className="ml-2 text-gray-600 dark:text-gray-300">Marketing</span>
+                                                                <span className="text-gray-600 dark:text-gray-300">Marketing</span>
                                                             </label>
-                                                            <label className="inline-flex items-center cursor-pointer">
+                                                            <label className="inline-flex items-center cursor-pointer w-full">
                                                                 <input
                                                                     type="radio"
                                                                     name="utility"
@@ -667,15 +810,15 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                         setSelectedDocument('');
                                                                     }}
                                                                 />
-                                                                <span className="ml-2 text-gray-600 dark:text-gray-300">Utility</span>
+                                                                <span className=" text-gray-600 dark:text-gray-300">Utility</span>
                                                             </label>
                                                         </div>
                                                     </div>
 
                                                     {messageType === "marketing" && (
                                                         <>
-                                                            <div className="flex sm:flex-row flex-col items-center">
-                                                                <label className="sm:w-1/4 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300">Regular Message Type</label>
+                                                            <div className="flex sm:flex-row flex-col items-center w-full">
+                                                                <label className="sm:w-1/2 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300">File Type</label>
                                                                 <Select
                                                                     placeholder="Select an option"
                                                                     className="w-full sm:ml-2"
@@ -686,7 +829,7 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                         { value: 'document', label: 'Document' },
                                                                     ]}
                                                                     value={data.documentType ? { value: data.documentType, label: data.documentType.charAt(0).toUpperCase() + data.documentType.slice(1) } : null}
-                                                                    onChange={(selectedOption) => {
+                                                                    onChange={(selectedOption: any) => {
                                                                         setData((prev: any) => ({ ...prev, 'documentType': selectedOption?.value }));
                                                                         setSelectedDocument("");
                                                                         setData((prev: any) => ({ ...prev, document: null }));
@@ -695,8 +838,8 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                             </div>
 
                                                             {(data.documentType !== "text") && (
-                                                                <div className="flex sm:flex-row flex-col items-center">
-                                                                    <label className="sm:w-1/4 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300">File</label>
+                                                                <div className="flex sm:flex-row flex-col items-center w-full">
+                                                                    <label className="sm:w-1/2 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300">File</label>
                                                                     <input
                                                                         ref={fileInputRef}
                                                                         id="ctnFile"
@@ -714,64 +857,57 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                         }
                                                                         onChange={(event) => handleFileChange(event)}
                                                                     />
-                                                                    {data.document && (
-                                                                        <div className="mt-2 flex items-center">
-                                                                            <p className="mr-2">
-                                                                                <b>Selected file:</b> {data?.document?.name}
-                                                                            </p>
-                                                                            <button
-                                                                                type="button"
-                                                                                className="text-red-600 hover:text-red-800"
-                                                                                onClick={() => {
-                                                                                    setSelectedDocument("");
-                                                                                    setData((prev: any) => ({ ...prev, document: null }));
-                                                                                }}
-                                                                            >
-                                                                                &times;
-                                                                            </button>
-                                                                        </div>
-                                                                    )}
+                                                                </div>
+                                                            )}
+                                                            {data.document && (
+                                                                <div className="flex items-center w-full px-3 py-2">
+                                                                    <label className="sm:w-1/4 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300"></label>
+                                                                    <p className="text-sm text-gray-700 dark:text-gray-300 flex-1 truncate ml-6">
+                                                                        <b>Selected file:</b> {data?.document?.name}
+                                                                    </p>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="text-red-600 hover:text-red-800 ml-2 text-sm"
+                                                                        onClick={() => {
+                                                                            setSelectedDocument("");
+                                                                            setData((prev: any) => ({ ...prev, document: null }));
+                                                                        }}
+                                                                    >
+                                                                        &times;
+                                                                    </button>
                                                                 </div>
                                                             )}
                                                         </>
                                                     )}
 
-                                                    <div className="flex sm:flex-row flex-col items-center">
-                                                        <label className="sm:w-1/4 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300">Caption</label>
-                                                        <CustomEditor
-                                                            value={editorText}
-                                                            onChange={(text: string) => {
-                                                                setEditorText(text);
-                                                            }}
-                                                        />
+                                                    <div className="flex sm:flex-row flex-col items-center w-full">
+                                                        <label className="sm:w-1/2 sm:ltr:mr-2 rtl:ml-2 text-gray-700 dark:text-gray-300">
+                                                            Caption
+                                                        </label>
+                                                        <div className="flex w-full max-w-xl overflow-hidden">
+                                                            <CustomEditor
+                                                                value={editorText}
+                                                                onChange={(text: string) => {
+                                                                    setEditorText(text);
+                                                                }}
+                                                            />
+                                                        </div>
                                                     </div>
 
-                                                    <div className="flex sm:flex-row flex-col items-center">
-                                                        <label className="sm:w-1/4 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300">Button</label>
-                                                        <Select
-                                                            placeholder="Select an option"
-                                                            className="w-full sm:ml-2"
-                                                            options={[
-                                                                { value: 'button', label: 'Interactive (Button)' },
-                                                                { value: 'list', label: 'Interactive (List)' },
-                                                            ]}
-                                                            onChange={(selectedValue) => setData((prev: any) => ({ ...prev, 'button': selectedValue }))}
-                                                            value={data.button}
-                                                        />
-                                                    </div>
-
-                                                    <div className="flex sm:flex-row flex-col justify-between mt-6">
+                                                    <div className="flex sm:flex-row flex-col justify-between mt-6 w-full">
                                                         <button
                                                             type="button"
                                                             className="btn btn-primary flex items-center gap-2 py-2 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition duration-300"
-                                                            onClick={() => setSelectedTab('audience')}>
+                                                            onClick={() => setSelectedTab('audience')}
+                                                        >
                                                             <IconArrowBackward />
                                                             Back
                                                         </button>
                                                         <button
                                                             type="button"
                                                             className="btn btn-success flex items-center gap-2 py-2 px-4 rounded-lg bg-green-600 text-white hover:bg-green-700 transition duration-300"
-                                                            onClick={() => setSelectedTab('preview')}>
+                                                            onClick={() => setSelectedTab(messageType === "utility" ? "template" : "preview")}
+                                                        >
                                                             Next
                                                             <IconArrowForward />
                                                         </button>
@@ -782,65 +918,80 @@ const ComponentsAppsCreateNewCampaign = () => {
                                             return (
                                                 <form className="space-y-5">
                                                     <div className="flex sm:flex-row flex-col items-center">
-                                                        <label className="sm:w-1/4 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300">Choose Template</label>
+                                                        <label className="sm:w-1/2 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300">Choose Template</label>
                                                         <input
                                                             ref={fileInputRef}
                                                             id="template"
                                                             name="template"
                                                             type="file"
                                                             accept="image/*"
-                                                            className="form-input sm:ml-2 w-full file:py-2 file:px-4 file:border-0 file:font-semibold p-0 file:bg-primary/90 ltr:file:mr-5 rtl:file-ml-5 file:text-white hover:file:bg-primary"
+                                                            className="form-input sm:ml-2 w-full file:py-2 file:border-0 file:font-semibold p-0 file:bg-primary/90 ltr:file:mr-5 rtl:file-ml-5 file:text-white hover:file:bg-primary"
                                                             required
                                                             onChange={handleImageChange}
                                                         />
-                                                        <label className="sm:w-1/4 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300">
+                                                        <label className="w-full ml-2 text-gray-700 dark:text-gray-300">
                                                             {selectedTemplate
                                                                 ? `${Number(selectedTemplate.data.height)} x ${Number(selectedTemplate.data.width)}`
-                                                                : "No template selected"}
+                                                                : ""}
                                                         </label>
-                                                        {selectedTemplate && (
-                                                            <div className="mt-2 flex items-center">
-                                                                <p className="mr-2">
-                                                                    <b>Selected file:</b> {selectedTemplate.file.name}
-                                                                </p>
-                                                                <button
-                                                                    type="button"
-                                                                    className="text-red-600 hover:text-red-800 ml-2"
-                                                                    onClick={() => {
-                                                                        setSelectedTemplate('');
-                                                                        setSelectedImageUrl('');
-                                                                    }}
-                                                                >
-                                                                    &times;
-                                                                </button>
-                                                            </div>
-                                                        )}
                                                     </div>
+                                                    {selectedTemplate && (
+                                                        <div className="flex items-center">
+                                                            <label className="sm:w-1/4 sm:ltr:mr-1 rtl:ml-4 text-gray-700 dark:text-gray-300"></label>
+                                                            <p className="text-sm text-gray-700 dark:text-gray-300 flex-1 truncate">
+                                                                <b>Selected Template :</b> {selectedTemplate.file.name}
+                                                            </p>
+                                                            <button
+                                                                type="button"
+                                                                className="text-red-600 hover:text-red-800"
+                                                                onClick={() => {
+                                                                    setSelectedTemplate('');
+                                                                    setSelectedImageUrl('');
+                                                                }}
+                                                            >
+                                                                &times;
+                                                            </button>
+                                                        </div>
+                                                    )}
 
                                                     {selectedTemplate && (
                                                         <div className="flex sm:flex-row flex-col items-center">
-                                                            <label className="sm:w-1/4 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300">Reference Template</label>
+                                                            <label className="sm:w-1/2 sm:ltr:mr-2 rtl:ml-2 text-gray-700 dark:text-gray-300">Reference Template</label>
                                                             <Select
                                                                 placeholder="Select an option"
                                                                 className="w-full sm:ml-2"
                                                                 options={referenceTemplates
-                                                                    .filter((template: any) =>
-                                                                        Number(template.width) === Number(selectedTemplate.data.width) &&
-                                                                        Number(template.height) === Number(selectedTemplate.data.height)
+                                                                    .filter(
+                                                                        (template: any) =>
+                                                                            Number(template.width) === Number(selectedTemplate.data.width) &&
+                                                                            Number(template.height) === Number(selectedTemplate.data.height)
                                                                     )
                                                                     .map((template: any) => ({
                                                                         value: template._id,
                                                                         label: template.name,
                                                                         imageUrl: template.templateFormat.url,
-                                                                        data: template
+                                                                        data: template,
                                                                     }))
                                                                 }
                                                                 components={{ Option: CustomOption }}
                                                                 onChange={handleSelectionChange}
-                                                                value={selectedRefTemplate}
+                                                                value={referenceTemplates
+                                                                    .filter(
+                                                                        (template: any) =>
+                                                                            Number(template.width) === Number(selectedTemplate.data.width) &&
+                                                                            Number(template.height) === Number(selectedTemplate.data.height)
+                                                                    )
+                                                                    .map((template: any) => ({
+                                                                        value: template._id,
+                                                                        label: template.name,
+                                                                        imageUrl: template.templateFormat.url,
+                                                                        data: template,
+                                                                    }))
+                                                                    .find((option: any) => option.value === selectedRefTemplate.name)
+                                                                }
                                                             />
-                                                            <label className="sm:w-1/4 sm:ltr:mr-4 rtl:ml-4 text-gray-700 dark:text-gray-300">
-                                                                {selectedRefTemplate ? `${Number(selectedRefTemplate.height)} x ${Number(selectedRefTemplate.width)}` : "No template selected"}
+                                                            <label className="ml-2 w-full text-gray-700 dark:text-gray-300">
+                                                                {selectedRefTemplate ? `${Number(selectedRefTemplate.height)} x ${Number(selectedRefTemplate.width)}` : ""}
                                                             </label>
                                                         </div>
                                                     )}
@@ -904,6 +1055,8 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                                             return 'Group';
                                                                                         case 'favoriteContacts':
                                                                                             return 'Favorite Contacts';
+                                                                                        case 'quickAudience':
+                                                                                            return 'Quick Audience';
                                                                                         default:
                                                                                             return audience;
                                                                                     }
@@ -919,7 +1072,7 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                 <div className="flex items-center p-6 bg-white rounded-lg shadow-md">
                                                                     <IconUsersGroup className="text-4xl text-yellow-600 mr-4" />
                                                                     <div className="text-left">
-                                                                        <div className="text-xl font-semibold text-gray-800">{audienceCount}</div>
+                                                                        <div className="text-xl font-semibold text-gray-800">{audienceCount ? audienceCount : selectedContacts.length}</div>
                                                                         <div className="text-sm font-light text-gray-400">Audience Size</div>
                                                                     </div>
                                                                 </div>
@@ -1016,30 +1169,57 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                         </div>
                                                     </form>
 
-                                                    {/* Right Side (WhatsApp Preview) */}
-                                                    <div className="panel p-4 bg-white rounded-lg shadow-md">
-                                                        {/* <div className="whatsapp-preview bg-gray-100 p-4 rounded-lg shadow-lg"> */}
-                                                        <div className="whatsapp-message bg-green-50 rounded-lg overflow-hidden">
-                                                            {(selectedDocument || data.document) &&
-                                                                !selectedTemplate &&
-                                                                data?.document?.type?.startsWith("image/") && (
-                                                                    <img
-                                                                        src={URL.createObjectURL(data?.document)}
-                                                                        alt="preview"
-                                                                        className="w-full object-cover"
+                                                    <div className="whatsapp-message bg-green-100 overflow-hidden w-full max-w-md mx-auto p-2 shadow-md">
+                                                        <div className="flex items-start">
+                                                            <div className="w-10 h-10 rounded-full bg-gray-300 flex-shrink-0"></div>
+
+                                                            <div className="ml-3 flex-1">
+                                                                <div className="bg-white p-3 w-full flex flex-col justify-between shadow rounded-lg">
+                                                                    {(selectedDocument || data.document) &&
+                                                                        !selectedTemplate &&
+                                                                        data?.document?.type?.startsWith("image/") && (
+                                                                            <img
+                                                                                src={URL.createObjectURL(data?.document)}
+                                                                                alt="preview"
+                                                                                className="w-full max-h-96 object-contain rounded"
+                                                                            />
+                                                                        )}
+
+                                                                    {(selectedDocument || data.document) &&
+                                                                        !selectedTemplate &&
+                                                                        data?.document?.type?.startsWith("video/") && (
+                                                                            <video
+                                                                                src={URL.createObjectURL(data?.document)}
+                                                                                controls
+                                                                                className="w-full max-h-96 object-contain rounded"
+                                                                            />
+                                                                        )}
+
+                                                                    {(selectedDocument || data.document) &&
+                                                                        !selectedTemplate &&
+                                                                        data?.document?.type?.startsWith("application/") && (
+                                                                            <iframe
+                                                                                src={URL.createObjectURL(data?.document)}
+                                                                                className="w-full max-h-96 object-contain rounded"
+                                                                            ></iframe>
+                                                                        )}
+
+                                                                    {selectedTemplate && selectedRefTemplate && !selectedDocument && (
+                                                                        <WhatsAppMessagePreview
+                                                                            selectedTemplate={selectedTemplate}
+                                                                            selectedRefTemplate={selectedRefTemplate}
+                                                                        />
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="mt-2 text-gray-800 text-sm">
+                                                                    <p
+                                                                        dangerouslySetInnerHTML={{ __html: formattedText }}
+                                                                        className="whitespace-normal break-words break-all"
                                                                     />
-                                                                )}
-                                                            {selectedTemplate && selectedRefTemplate && !selectedDocument && (
-                                                                <WhatsAppMessagePreview
-                                                                    selectedTemplate={selectedTemplate}
-                                                                    selectedRefTemplate={selectedRefTemplate}
-                                                                />
-                                                            )}
-                                                            <div className="p-3 text-gray-800 text-base">
-                                                                <p dangerouslySetInnerHTML={{ __html: formattedText }} />
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                        {/* </div> */}
                                                     </div>
                                                 </div>
                                             );
@@ -1066,8 +1246,9 @@ const ComponentsAppsCreateNewCampaign = () => {
                         </button>
                     </div>
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 };
 

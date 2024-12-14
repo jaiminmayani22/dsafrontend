@@ -46,8 +46,8 @@ const ComponentsAppsContacts = () => {
     const [page, setPage] = useState(1); // Current page
     const [pageSize, setPageSize] = useState(PAGE_SIZES[0]); // Records per page
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus>({
-        columnAccessor: 'name',
-        direction: 'asc',
+        columnAccessor: 'updatedAt',
+        direction: 'desc',
     });
     const [groupNames, setGroupNames] = useState<Group[]>([]);
     const [errors, setErrors] = useState<any>({});
@@ -57,6 +57,7 @@ const ComponentsAppsContacts = () => {
     const [isInvalidModalOpen, setIsInvalidModalOpen] = useState(false);
     const [errorMessages, setErrorMessages] = useState({ mobile: '', whatsapp: '' });
     const [loading, setLoading] = useState(false);
+    const [isCompanyLoading, setIsCompanyLoading] = useState(false);
 
     const [defaultParams] = useState({
         _id: null,
@@ -65,6 +66,7 @@ const ComponentsAppsContacts = () => {
         mobile_number: '',
         whatsapp_number: '',
         email: '',
+        website: '',
         city: '',
         district: '',
         address: '',
@@ -92,6 +94,7 @@ const ComponentsAppsContacts = () => {
         _id: string;
         name?: string;
         email?: string;
+        website?: string;
         groupName?: string;
         groupId?: string;
         city?: string;
@@ -117,9 +120,8 @@ const ComponentsAppsContacts = () => {
     }
 
     const [contactList, setContacts] = useState<Contact[]>([]);
-    const [filteredItems, setFilteredItems] = useState<Contact[]>(contactList);
+    const [filteredItems, setFilteredItems] = useState<any>([]);
     const [invalidEntries, setInvalidEntries] = useState<any[]>([]);
-    const [contactCount, setContactCount] = useState<any>();
     const [search, setSearch] = useState<any>('');
     const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -205,13 +207,6 @@ const ComponentsAppsContacts = () => {
         setPage(1);
     }, [pageSize]);
 
-    //page data set
-    useEffect(() => {
-        const from = (page - 1) * pageSize;
-        const to = from + pageSize;
-        setFilteredItems([...contactList.slice(from, to)]);
-    }, [page, pageSize, contactList]);
-
     //sorting
     useEffect(() => {
         const data2 = sortBy(filteredItems, sortStatus.columnAccessor);
@@ -272,8 +267,8 @@ const ComponentsAppsContacts = () => {
                                 return prevItems.map((item: any) => {
                                     if (item._id === params._id) {
                                         return {
-                                            ...item,
                                             ...data.data,
+                                            ...item,
                                         };
                                     }
                                     return item;
@@ -332,14 +327,14 @@ const ComponentsAppsContacts = () => {
         const json = JSON.parse(JSON.stringify(defaultParams));
         setParams(json);
         if (_id) {
-            const user = filteredItems.find(u => u._id === _id);
+            const user = filteredItems.find((u: any) => u._id === _id);
             setParams(user);
         }
         setAddContactModal(true);
     };
 
     const viewUser = (_id: any = null) => {
-        const user = filteredItems.find(u => u._id === _id);
+        const user = filteredItems.find((u: any) => u._id === _id);
         setCurrentUser(user);
         setViewUserModal(true);
     };
@@ -419,10 +414,11 @@ const ComponentsAppsContacts = () => {
                         body: formData,
                     });
                     const result = await response.json();
-
                     if (!response.ok) {
-                        showMessage(result.message, 'error')
+                        showMessage(result.message, 'error');
+                        return;
                     }
+
                     if (result.changes?.length > 0) {
                         const invalidEntries = result.changes.filter((item: any) => item.action === 'invalid');
                         if (invalidEntries.length > 0) {
@@ -430,13 +426,19 @@ const ComponentsAppsContacts = () => {
                             setIsInvalidModalOpen(true);
                         } else {
                             if (result.data?.length > 0) {
-                                setFilteredItems([...filteredItems, ...result.data]);
+                                const newEntries = result.data.filter(
+                                    (item: any) => !filteredItems.some((existingItem: any) => existingItem.id === item.id)
+                                );
+                                setFilteredItems((prev: any) => [...prev, ...newEntries]);
                             }
                             showMessage(result.message);
                         }
                     } else {
                         if (result.data?.length > 0) {
-                            setFilteredItems([...filteredItems, ...result.data]);
+                            const newEntries = result.data.filter(
+                                (item: any) => !filteredItems.some((existingItem: any) => existingItem.id === item.id)
+                            );
+                            setFilteredItems((prev: any) => [...prev, ...newEntries]);
                         }
                         showMessage(result.message);
                     }
@@ -537,12 +539,12 @@ const ComponentsAppsContacts = () => {
                     if (!response.ok) {
                         showMessage(result.message);
                     } else {
-                        setFilteredItems((prevItems) => {
+                        setFilteredItems((prevItems: any) => {
                             const updatedItemsMap = new Map(
-                                result.results.map((item: any) => [String(item.whatsapp_number).trim(), item])
+                                result.results.map((item: any) => [String(item?.whatsapp_number).trim(), item])
                             );
                             return prevItems.map((item: any) => {
-                                const normalizedWhatsApp = String(item.whatsapp_number).trim();
+                                const normalizedWhatsApp = String(item?.whatsapp_number).trim();
                                 const updatedItem = updatedItemsMap.get(normalizedWhatsApp);
 
                                 return updatedItem ? { ...item, ...updatedItem } : item;
@@ -593,12 +595,12 @@ const ComponentsAppsContacts = () => {
                     if (!response.ok) {
                         showMessage(result.message);
                     } else {
-                        setFilteredItems((prevItems) => {
+                        setFilteredItems((prevItems: any) => {
                             const updatedItemsMap = new Map(
-                                result.results.map((item: any) => [String(item.whatsapp_number).trim(), item])
+                                result.results.map((item: any) => [String(item?.whatsapp_number).trim(), item])
                             );
                             return prevItems.map((item: any) => {
-                                const normalizedWhatsApp = String(item.whatsapp_number).trim();
+                                const normalizedWhatsApp = String(item?.whatsapp_number).trim();
                                 const updatedItem = updatedItemsMap.get(normalizedWhatsApp);
 
                                 return updatedItem ? { ...item, ...updatedItem } : item;
@@ -630,7 +632,7 @@ const ComponentsAppsContacts = () => {
 
             if (response.ok) {
                 const deletedIds = await response.json();
-                const updatedFilteredItems = filteredItems.filter(contact => !deletedIds.includes(contact._id));
+                const updatedFilteredItems = filteredItems.filter((contact: any) => !deletedIds.includes(contact._id));
                 setFilteredItems(updatedFilteredItems);
                 setContacts(updatedFilteredItems);
                 setSelectedRecords([]);
@@ -660,38 +662,47 @@ const ComponentsAppsContacts = () => {
     const handleProfilePicture = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target?.files?.[0];
         if (file) {
-            if (params._id) {
-                const whatsapp_number = String(params.whatsapp_number).trim().replace('+', '');
+            setLoading(true);
+            try {
+                if (params._id) {
+                    const whatsapp_number = String(params.whatsapp_number).trim().replace('+', '');
+                    const formData = new FormData();
+                    formData.append("profile_picture", file);
+                    formData.append("_id", params._id);
 
-                const formData = new FormData();
-                formData.append("profile_picture", file);
-                formData.append("_id", params._id);
-
-                const response = await fetch(`${apis.updateClientProfile}?whatsapp_number=${whatsapp_number}`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    body: formData,
-                });
-                const data = await response.json();
-                if (!response.ok) {
-                    showMessage("Profile Picture Upload Failed, Please select again", 'error')
-                }
-                setFilteredItems((prevItems) => {
-                    return prevItems.map((item) => {
-                        if (item._id === params._id) {
-                            return {
-                                ...item,
-                                ...data.data,
-                            };
-                        }
-                        return item;
+                    const response = await fetch(`${apis.updateClientProfile}?whatsapp_number=${whatsapp_number}`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                        },
+                        body: formData,
                     });
-                });
-                showMessage(data.message);
-            } else {
-                setParams({ ...params, profile_picture: file });
+
+                    const data = await response.json();
+                    if (!response.ok) {
+                        showMessage("Profile Picture Upload Failed, Please select again", 'error');
+                    } else {
+                        setFilteredItems((prevItems: any) => {
+                            return prevItems.map((item: any) => {
+                                if (item._id === params._id) {
+                                    setParams(data.data);
+                                    return {
+                                        ...item,
+                                        ...data.data,
+                                    };
+                                }
+                                return item;
+                            });
+                        });
+                        showMessage(data.message + " Please check contact in list");
+                    }
+                } else {
+                    setParams({ ...params, profile_picture: file });
+                }
+            } catch (error) {
+                showMessage('An error occurred while uploading. Please try again.', 'error');
+            } finally {
+                setLoading(false);
             }
         } else {
             showMessage('No file selected. Please choose a file.', 'error');
@@ -701,38 +712,48 @@ const ComponentsAppsContacts = () => {
     const handleCompanyProfilePicture = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target?.files?.[0];
         if (file) {
-            if (params._id) {
-                const whatsapp_number = String(params.whatsapp_number).trim().replace('+', '');
+            setIsCompanyLoading(true);
+            try {
+                if (params._id) {
+                    const whatsapp_number = String(params.whatsapp_number).trim().replace('+', '');
 
-                const formData = new FormData();
-                formData.append("company_profile_picture", file);
-                formData.append("_id", params._id);
+                    const formData = new FormData();
+                    formData.append("company_profile_picture", file);
+                    formData.append("_id", params._id);
 
-                const response = await fetch(`${apis.updateClientCompanyProfile}?whatsapp_number=${whatsapp_number}`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    body: formData,
-                });
-                const data = await response.json();
-                if (!response.ok) {
-                    showMessage("Company Profile Picture Upload Failed, Please select again", 'error')
-                }
-                setFilteredItems((prevItems) => {
-                    return prevItems.map((item) => {
-                        if (item._id === params._id) {
-                            return {
-                                ...item,
-                                ...data.data,
-                            };
-                        }
-                        return item;
+                    const response = await fetch(`${apis.updateClientCompanyProfile}?whatsapp_number=${whatsapp_number}`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                        },
+                        body: formData,
                     });
-                });
-                showMessage(data.message);
-            } else {
-                setParams({ ...params, company_profile_picture: file });
+
+                    const data = await response.json();
+                    if (!response.ok) {
+                        showMessage("Company Profile Picture Upload Failed, Please select again", 'error');
+                    } else {
+                        setFilteredItems((prevItems: any) => {
+                            return prevItems.map((item: any) => {
+                                if (item._id === params._id) {
+                                    setParams(data.data);
+                                    return {
+                                        ...item,
+                                        ...data.data,
+                                    };
+                                }
+                                return item;
+                            });
+                        });
+                        showMessage(data.message);
+                    }
+                } else {
+                    setParams({ ...params, company_profile_picture: file });
+                }
+            } catch (error) {
+                showMessage('An error occurred while uploading. Please try again.', 'error');
+            } finally {
+                setIsCompanyLoading(false);
             }
         } else {
             showMessage('No file selected. Please choose a file.', 'error');
@@ -752,7 +773,6 @@ const ComponentsAppsContacts = () => {
 
             if (response.ok) {
                 setFilteredItems([...data.data]);
-                setContactCount(data.totalRecords);
                 setSearch('');
             } else {
                 console.error('Failed to fetch client count:', data.message);
@@ -898,23 +918,109 @@ const ComponentsAppsContacts = () => {
             invalidEntries[currentIndex]?.client.Mobile_Number.length === 10)
     );
 
+    const handleRemoveProfileImage = async () => {
+        try {
+            const whatsapp_number = String(params.whatsapp_number).trim().replace('+', '');
+            const formData = new FormData();
+            formData.append("profile_picture", '');
+            formData.append("_id", params._id);
+
+            const response = await fetch(`${apis.updateClientProfile}?whatsapp_number=${whatsapp_number}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                showMessage("Profile Picture Upload Failed, Please select again", 'error');
+            } else {
+                setFilteredItems((prevItems: any) => {
+                    return prevItems.map((item: any) => {
+                        if (item._id === params._id) {
+                            setParams(data.data);
+                            return {
+                                ...item,
+                                ...data.data,
+                            };
+                        }
+                        return item;
+                    });
+                });
+                showMessage(data.message + " Please check contact in list");
+            }
+        } catch (error) {
+            showMessage("Update Failed, Please try again.", 'error');
+        }
+    };
+
+    const handleRemoveLogoImage = async () => {
+        try {
+            const whatsapp_number = String(params.whatsapp_number).trim().replace('+', '');
+
+            const formData = new FormData();
+            formData.append("company_profile_picture", '');
+            formData.append("_id", params._id);
+
+            const response = await fetch(`${apis.updateClientCompanyProfile}?whatsapp_number=${whatsapp_number}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                showMessage("Company Profile Picture Upload Failed, Please select again", 'error');
+            } else {
+                setFilteredItems((prevItems: any) => {
+                    return prevItems.map((item: any) => {
+                        if (item._id === params._id) {
+                            setParams(data.data);
+                            return {
+                                ...item,
+                                ...data.data,
+                            };
+                        }
+                        return item;
+                    });
+                });
+                showMessage(data.message);
+            }
+        } catch (error) {
+            showMessage("Update Failed, Please try again.", 'error');
+        }
+    };
+
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedDetails = filteredItems.slice(startIndex, endIndex);
+
+    type RecordType = {
+        profile_picture?: { url: string };
+        company_profile_picture?: { url: string };
+        name?: string;
+    };
+
     return (
         <div>
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-2 ml-auto">
                     {/* Displaying the count of filtered contacts */}
                     <span className="text-sm font-medium">
-                        Showing {contactCount ? contactCount : filteredItems.length} contacts
+                        Total {filteredItems.length} contacts
                     </span>
 
                     {/* Refresh Button */}
                     <button
                         type="button"
-                        className="btn btn-secondary"
+                        className="flex items-center text-gray-600 hover:text-gray-800 focus:outline-none"
                         onClick={() => refreshContacts()}
                     >
                         <IconRefresh className="ltr:mr-2 rtl:ml-2" />
-                        Refresh
                     </button>
                 </div>
             </div>
@@ -939,7 +1045,7 @@ const ComponentsAppsContacts = () => {
                             button={
                                 <>
                                     <IconDownload />
-                                    Import Contacts
+                                    Import
                                     <span>
                                         <IconCaretDown className="inline-block ltr:ml-1 rtl:mr-1" />
                                     </span>
@@ -951,10 +1057,10 @@ const ComponentsAppsContacts = () => {
                                     <button type="button" onClick={() => importContacts()}>Import Contacts</button>
                                 </li>
                                 <li>
-                                    <button type="button" onClick={() => importProfileImages()}>Import Profile Images</button>
+                                    <button type="button" onClick={() => importProfileImages()}>Profile Images</button>
                                 </li>
                                 <li>
-                                    <button type="button" onClick={() => importCompanyProfileImages()}>Import Comapany Profile Images</button>
+                                    <button type="button" onClick={() => importCompanyProfileImages()}>Logos</button>
                                 </li>
                             </ul>
                         </Dropdown>
@@ -987,42 +1093,18 @@ const ComponentsAppsContacts = () => {
                     <div className="dropdown">
                         <Dropdown
                             placement={`${isRtl ? 'bottom-start' : 'bottom-end'}`}
-                            btnClassName="btn btn-success gap-2 dropdown-toggle"
-                            button={
-                                <>
-                                    <IconDownload />
-                                    Download Templates
-                                    <span>
-                                        <IconCaretDown className="inline-block ltr:ml-1 rtl:mr-1" />
-                                    </span>
-                                </>
-                            }
-                        >
-                            <ul className="!min-w-[170px]">
-                                <li>
-                                    <button type="button" onClick={downloadCSV}>CSV Template</button>
-                                </li>
-                                {/* <li>
-                                    <button type="button" onClick={importContacts}>Utility Template</button>
-                                </li>
-                                <li>
-                                    <button type="button" onClick={importContacts}>Import Profile Images</button>
-                                </li> */}
-                            </ul>
-                        </Dropdown>
-                    </div>
-                    <div className="dropdown">
-                        <Dropdown
-                            placement={`${isRtl ? 'bottom-start' : 'bottom-end'}`}
                             btnClassName="btn p-0 rounded-none border-0 shadow-none dropdown-toggle"
                             button={<IconHorizontalDots className="h-6 w-6 opacity-70" />}
                         >
                             <ul className="!min-w-[170px]">
                                 <li>
-                                    <button type="button" onClick={viewFavouriteContacts}>View Favourite Contacts</button>
+                                    <button type="button" onClick={viewFavouriteContacts}>Favourites</button>
                                 </li>
                                 <li>
-                                    <button type="button" onClick={viewAll}>View All Contacts</button>
+                                    <button type="button" onClick={viewAll}>View All</button>
+                                </li>
+                                <li>
+                                    <button type="button" onClick={downloadCSV}>Download CSV</button>
                                 </li>
                             </ul>
                         </Dropdown>
@@ -1039,9 +1121,9 @@ const ComponentsAppsContacts = () => {
 
             <br />
             <div className="datatables pagination-padding">
-                <DataTable
+                <DataTable<RecordType>
                     className="table-hover whitespace-nowrap"
-                    records={filteredItems}
+                    records={paginatedDetails}
                     columns={[
                         {
                             accessor: 'checkbox',
@@ -1064,11 +1146,23 @@ const ComponentsAppsContacts = () => {
                             title: 'Logo',
                             accessor: 'company_profile_picture',
                             sortable: true,
-                            render: ({ company_profile_picture }) => (
-                                company_profile_picture?.url ? (
+                            render: (record: { company_profile_picture?: { url: string } }) => (
+                                record.company_profile_picture?.url ? (
                                     <div className="flex items-center font-semibold">
-                                        <div className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2" onClick={() => openModal(company_profile_picture?.url)}>
-                                            <img className="h-8 w-8 rounded-full object-cover" src={company_profile_picture.url} alt="" />
+                                        <div
+                                            className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2"
+                                            onClick={() => {
+                                                const url = record?.company_profile_picture?.url;
+                                                if (url) {
+                                                    openModal(url);
+                                                }
+                                            }}
+                                        >
+                                            <img
+                                                className="h-8 w-8 rounded-full object-cover"
+                                                src={record?.company_profile_picture?.url}
+                                                alt=""
+                                            />
                                         </div>
                                     </div>
                                 ) : null
@@ -1077,16 +1171,22 @@ const ComponentsAppsContacts = () => {
                         {
                             accessor: 'name',
                             sortable: true,
-                            render: ({ name, profile_picture }) => (
-                                profile_picture?.url ? (
-                                    <div className="flex items-center font-semibold">
-                                        <div className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2" onClick={() => openModal(profile_picture?.url)}>
-                                            <img className="h-8 w-8 rounded-full object-cover" src={profile_picture?.url} alt="" />
+                            render: (record: { profile_picture?: { url: string }; name?: string }) => (
+                                <div className="flex items-center font-semibold">
+                                    {record.profile_picture?.url && (
+                                        <div
+                                            className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2"
+                                            onClick={() => openModal(record.profile_picture?.url || '')}
+                                        >
+                                            <img
+                                                className="h-8 w-8 rounded-full object-cover"
+                                                src={record.profile_picture.url}
+                                                alt={record.name || 'Image'}
+                                            />
                                         </div>
-                                        <div>{name}</div>
-                                    </div>
-                                ) : <div>{name}</div>
-
+                                    )}
+                                    <div>{record.name || 'Unnamed'}</div>
+                                </div>
                             ),
                         },
                         {
@@ -1095,13 +1195,16 @@ const ComponentsAppsContacts = () => {
                         },
                         {
                             accessor: 'groupName',
+                            title: 'Group',
                             sortable: true,
-                            render: ({ groupName }) => {
+                            render: (record) => {
+                                const groupName = (record as { groupName?: string }).groupName;
+
                                 if (!groupName) {
                                     return null;
                                 }
 
-                                const options = groupName.split(',').map(option => option.trim());
+                                const options = groupName.split(',').map((option) => option.trim());
 
                                 if (options.length > 1) {
                                     return (
@@ -1120,78 +1223,60 @@ const ComponentsAppsContacts = () => {
                         },
                         {
                             accessor: 'mobile_number',
+                            title: 'Mobile',
                             sortable: true,
                         },
                         {
                             accessor: 'whatsapp_number',
+                            title: 'Whatsapp',
                             sortable: true,
                         },
                         {
                             accessor: 'company_name',
+                            title: 'Company',
                             sortable: true,
                         },
                         {
-                            accessor: 'createdAt',
+                            accessor: 'city',
                             sortable: true,
-                            render: ({ createdAt }) => (
-                                <div className="text-gray-700 dark:text-gray-300">
-                                    {new Date(createdAt).toLocaleString(undefined, {
-                                        year: 'numeric',
-                                        month: 'short',
-                                        day: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                    })}
-                                </div>
-                            ),
-                        },
-                        {
-                            accessor: 'updatedAt',
-                            sortable: true,
-                            render: ({ updatedAt }) => (
-                                <div className="text-gray-700 dark:text-gray-300">
-                                    {new Date(updatedAt).toLocaleString(undefined, {
-                                        year: 'numeric',
-                                        month: 'short',
-                                        day: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                    })}
-                                </div>
-                            ),
                         },
                         {
                             accessor: 'action',
                             title: 'Actions',
                             sortable: false,
                             textAlignment: 'center',
-                            render: ({ isFavorite, _id }) => (
+                            render: (record: any) => (
                                 <div className="mx-auto flex w-max items-center gap-4">
-                                    <button onClick={() => toggleFavorite(_id)} className="ml-2">
-                                        {isFavorite === "yes" ? <FaStar className="text-yellow-500" /> : <FaRegStar />}
+                                    <button onClick={() => toggleFavorite(record._id)} className="ml-2">
+                                        {record.isFavorite === "yes" ? <FaStar className="text-yellow-500" /> : <FaRegStar />}
                                     </button>
-                                    <button className="flex hover:text-info" onClick={() => editUser(_id)}>
+                                    <button className="flex hover:text-info" onClick={() => editUser(record._id)}>
                                         <IconEdit className="h-4.5 w-4.5" />
                                     </button>
-                                    <button className="flex hover:text-primary" onClick={() => viewUser(_id)}>
+                                    <button className="flex hover:text-primary" onClick={() => viewUser(record._id)}>
                                         <IconEye />
                                     </button>
-                                    <button type="button" className="flex hover:text-danger" onClick={(e) => deleteUser(_id)}>
+                                    <button type="button" className="flex hover:text-danger" onClick={() => deleteUser(record._id)}>
                                         <IconTrashLines />
                                     </button>
                                 </div>
                             ),
-                        },
+                        }
                     ]}
                     highlightOnHover
-                    totalRecords={contactList.length}
+                    totalRecords={filteredItems.length}
                     recordsPerPage={pageSize}
                     page={page}
                     onPageChange={setPage}
                     recordsPerPageOptions={PAGE_SIZES}
-                    onRecordsPerPageChange={setPageSize}
+                    onRecordsPerPageChange={(size) => {
+                        setPageSize(size);
+                        setPage(1);
+                    }}
                     sortStatus={sortStatus}
-                    onSortStatusChange={setSortStatus}
+                    onSortStatusChange={(status) => {
+                        setSortStatus(status);
+                    }}
                     paginationText={({ from, to, totalRecords }) =>
                         `Showing ${from} to ${to} of ${totalRecords} entries`
                     }
@@ -1319,7 +1404,7 @@ const ComponentsAppsContacts = () => {
                                                     htmlFor="mobile_number"
                                                     className="block font-medium text-gray-700 dark:text-gray-300"
                                                 >
-                                                    Mobile Number <span className="text-red-500">*</span>
+                                                    Mobile Number
                                                 </label>
                                                 <input
                                                     id="mobile_number"
@@ -1364,6 +1449,60 @@ const ComponentsAppsContacts = () => {
 
                                             {/* Other Fields (Instagram, Facebook, etc.) */}
                                             <div className="mb-5">
+                                                <label htmlFor="website" className="block font-medium text-gray-700 dark:text-gray-300">
+                                                    Website
+                                                </label>
+                                                <input
+                                                    id="website"
+                                                    type="text"
+                                                    placeholder="Enter Website"
+                                                    className="form-input mt-1 block w-full rounded-md border border-gray-300 shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                                                    value={params.website}
+                                                    onChange={(e) => changeValue(e)}
+                                                />
+                                            </div>
+
+                                            <div className="mb-5">
+                                                <label htmlFor="city" className="block font-medium text-gray-700 dark:text-gray-300">
+                                                    City
+                                                </label>
+                                                <input
+                                                    id="city"
+                                                    type="text"
+                                                    placeholder="Enter City"
+                                                    className="form-input mt-1 block w-full rounded-md border border-gray-300 shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                                                    value={params.city}
+                                                    onChange={(e) => changeValue(e)}
+                                                />
+                                            </div>
+                                            <div className="mb-5">
+                                                <label htmlFor="district" className="block font-medium text-gray-700 dark:text-gray-300">
+                                                    District
+                                                </label>
+                                                <input
+                                                    id="district"
+                                                    type="text"
+                                                    placeholder="Enter District"
+                                                    className="form-input mt-1 block w-full rounded-md border border-gray-300 shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                                                    value={params.district}
+                                                    onChange={(e) => changeValue(e)}
+                                                />
+                                            </div>
+                                            <div className="mb-5">
+                                                <label htmlFor="address" className="block font-medium text-gray-700 dark:text-gray-300">
+                                                    Address
+                                                </label>
+                                                <input
+                                                    id="address"
+                                                    type="text"
+                                                    placeholder="Enter Address"
+                                                    className="form-input mt-1 block w-full rounded-md border border-gray-300 shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                                                    value={params.address}
+                                                    onChange={(e) => changeValue(e)}
+                                                />
+                                            </div>
+
+                                            <div className="mb-5">
                                                 <label htmlFor="instagramID" className="block font-medium text-gray-700 dark:text-gray-300">
                                                     Instagram ID
                                                 </label>
@@ -1391,36 +1530,96 @@ const ComponentsAppsContacts = () => {
                                                 />
                                             </div>
 
+                                            <div className="mb-5">
+                                                <label
+                                                    htmlFor="isFavorite"
+                                                    className="block font-medium text-gray-700 dark:text-gray-300"
+                                                >
+                                                    Add as Favorite Contact
+                                                </label>
+                                                <div className="mt-1 flex items-center">
+                                                    <label
+                                                        htmlFor="isFavorite"
+                                                        className="relative inline-flex items-center cursor-pointer"
+                                                    >
+                                                        <input
+                                                            id="isFavorite"
+                                                            type="checkbox"
+                                                            className="sr-only peer"
+                                                            checked={(params.isFavorite === "yes") ? true : false}
+                                                            onChange={(e) =>
+                                                                changeValue({ target: { id: "isFavorite", value: e.target.checked ? "yes" : "no" } })
+                                                            }
+                                                        />
+                                                        <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-blue-600 dark:bg-gray-700 dark:peer-checked:bg-blue-500 peer-focus:ring-2 peer-focus:ring-blue-500 peer-focus:ring-offset-2 peer-focus:ring-offset-gray-200 dark:peer-focus:ring-offset-gray-800"></div>
+                                                        <div className="absolute w-5 h-5 bg-white rounded-full shadow left-1 top-0.5 peer-checked:translate-x-5 transition-transform"></div>
+                                                    </label>
+                                                    <span className="ml-3 text-sm text-gray-700 dark:text-gray-300">
+                                                        {params.isFavorite ? "Yes" : "No"}
+                                                    </span>
+                                                </div>
+                                            </div>
+
                                             {/* Profile Picture Upload */}
                                             <div className="mb-5">
                                                 <label htmlFor="profile_picture" className="block font-medium text-gray-700 dark:text-gray-300">
                                                     Profile Picture
                                                 </label>
-                                                <input
-                                                    id="profile_picture"
-                                                    accept="image/*"
-                                                    type="file"
-                                                    className="form-input file:rounded-md file:border-0 file:bg-primary file:text-white file:px-4 file:py-2 hover:file:bg-primary-dark"
-                                                    onChange={(event) => handleProfilePicture(event)}
-                                                />
-                                                {params.profile_picture?.originalname && (
-                                                    <p className="mt-2 text-sm text-gray-600">Selected Image: {params.profile_picture.filename}</p>
+                                                {!params.profile_picture && (
+                                                    <input
+                                                        id="profile_picture"
+                                                        accept="image/*"
+                                                        type="file"
+                                                        className={`form-input file:rounded-md file:border-0 file:bg-primary file:text-white file:px-4 file:py-2 hover:file:bg-primary-dark ${loading ? "opacity-50 cursor-not-allowed" : ""
+                                                            }`}
+                                                        onChange={(event) => handleProfilePicture(event)}
+                                                        disabled={loading}
+                                                    />
+                                                )}
+                                                {params.profile_picture && (
+                                                    <div className="mt-2 flex items-center">
+                                                        <p className="text-sm text-gray-600">
+                                                            Selected Image: {params.profile_picture.name ? params.profile_picture.name : params.profile_picture.filename}
+                                                        </p>
+                                                        <button
+                                                            type="button"
+                                                            className="ml-2 text-red-500 hover:text-red-700"
+                                                            onClick={handleRemoveProfileImage}
+                                                        >
+                                                            &times;
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
 
                                             <div className="mb-5">
                                                 <label htmlFor="company_profile_picture" className="block font-medium text-gray-700 dark:text-gray-300">
-                                                    Company Profile Picture
+                                                    Logo
                                                 </label>
-                                                <input
-                                                    id="company_profile_picture"
-                                                    accept="image/*"
-                                                    type="file"
-                                                    className="form-input file:rounded-md file:border-0 file:bg-primary file:text-white file:px-4 file:py-2 hover:file:bg-primary-dark"
-                                                    onChange={(e) => handleCompanyProfilePicture(e)}
-                                                />
-                                                {params.company_profile_picture?.originalname && (
-                                                    <p className="mt-2 text-sm text-gray-600">Selected Image: {params.company_profile_picture.filename}</p>
+                                                {!params.company_profile_picture && (
+                                                    <input
+                                                        id="company_profile_picture"
+                                                        accept="image/*"
+                                                        type="file"
+                                                        className={`form-input file:rounded-md file:border-0 file:bg-primary file:text-white file:px-4 file:py-2 hover:file:bg-primary-dark ${isCompanyLoading ? "opacity-50 cursor-not-allowed" : ""
+                                                            }`}
+                                                        onChange={(e) => handleCompanyProfilePicture(e)}
+                                                        disabled={isCompanyLoading}
+                                                    />
+                                                )}
+                                                {params.company_profile_picture && (
+                                                    <>
+                                                        <div className="mt-2 flex items-center">
+                                                            <p className="mt-2 text-sm text-gray-600">Selected Image: {params.company_profile_picture.name ? params.company_profile_picture.name : params.company_profile_picture.filename}</p>
+                                                            <button
+                                                                type="button"
+                                                                className="ml-2 text-red-500 hover:text-red-700"
+                                                                onClick={handleRemoveLogoImage}
+                                                            >
+                                                                &times;
+                                                            </button>
+                                                        </div>
+                                                    </>
                                                 )}
                                             </div>
 

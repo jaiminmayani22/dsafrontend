@@ -27,6 +27,8 @@ import IconArrowBackward from '@/components/icon/icon-arrow-backward';
 
 //FILES
 import apis from '../../../public/apis';
+import IconPlusCircle from '@/components/icon/icon-plus-circle';
+import { AnyARecord } from 'dns';
 
 const PAGE_SIZES = [10, 20, 50];
 
@@ -44,6 +46,7 @@ const ComponentsAppsGroups = () => {
     const [groupList, setGroups] = useState<any>([]);
     const [addGroupModal, setAddGroupModal] = useState<any>(false);
     const [addContactModal, setAddContactModal] = useState<any>(false);
+    const [newAdd, setNewAdd] = useState<any>(false);
     const [viewUserModal, setViewUserModal] = useState<any>(false);
     const [page, setPage] = useState<any>(1); // Current page
     const [pageSize, setPageSize] = useState<any>(PAGE_SIZES[0]); // Records per page
@@ -61,6 +64,11 @@ const ComponentsAppsGroups = () => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [errorMessages, setErrorMessages] = useState({ mobile: '', whatsapp: '' });
     const [loading, setLoading] = useState(false);
+    const [isCompanyLoading, setIsCompanyLoading] = useState(false);
+    const [selectedContacts, setSelectedContacts] = useState<any[]>([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [entriesPerPage, setEntriesPerPage] = useState(10);
+    const [searchQuery, setSearchQuery] = useState("");
 
     const [defaultParams] = useState<any>({
         _id: null,
@@ -79,6 +87,7 @@ const ComponentsAppsGroups = () => {
         mobile_number: '',
         whatsapp_number: '',
         email: '',
+        website: '',
         city: '',
         profile_picture: '',
         company_profile_picture: '',
@@ -102,7 +111,9 @@ const ComponentsAppsGroups = () => {
     };
 
     const [filteredItems, setFilteredItems] = useState<any>([]);
+    const [contacts, setContacts] = useState<any>([]);
     const [search, setSearch] = useState<any>('');
+    const [searchClient, setSearchClient] = useState<any>('');
 
     const searchContact = (e: any) => {
         const event = e.target.value;
@@ -148,26 +159,27 @@ const ComponentsAppsGroups = () => {
     //get all  members
     useEffect(() => {
         const fetchMembers = async () => {
-            try {
-                const response = await fetch(apis.getMembersForGroup, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({ groupId: selectedGroup }),
-                });
-                if (response.ok) {
-                    const memberArr = await response.json();
-                    setMembers(memberArr);
-                } else {
-                    showMessage('Members not Found', 'error');
+            if (selectedGroup !== null) {
+                try {
+                    const response = await fetch(apis.getMembersForGroup, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({ groupId: selectedGroup }),
+                    });
+                    if (response.ok) {
+                        const memberArr = await response.json();
+                        setMembers(memberArr);
+                    } else {
+                        showMessage('Members not Found', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error fetching groups:', error);
                 }
-            } catch (error) {
-                console.error('Error fetching groups:', error);
             }
         };
-
         fetchMembers();
     }, [selectedGroup]);
 
@@ -195,6 +207,10 @@ const ComponentsAppsGroups = () => {
         setPage(1);
     }, [sortStatus]);
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery]);
+
     const saveGroup = async () => {
         setLoading(true);
 
@@ -205,7 +221,6 @@ const ComponentsAppsGroups = () => {
         }
         try {
             if (params._id) {
-                //update user
                 const response = await fetch(`${apis.updateGroupById}${params._id}`, {
                     method: 'PUT',
                     headers: {
@@ -218,7 +233,7 @@ const ComponentsAppsGroups = () => {
                 const data = await response.json();
 
                 if (response.ok) {
-                    let group = filteredItems.find((d: any) => d.id === params._id);
+                    let group = filteredItems.find((d: any) => d._id === params._id);
                     Object.assign(group, params);
                     showMessage('Group has been updated successfully.');
                 } else {
@@ -337,6 +352,35 @@ const ComponentsAppsGroups = () => {
         setAddContactModal(true);
     };
 
+    const addUser = async () => {
+        setNewAdd(true);
+        try {
+            const response = await fetch(apis.getAllClient, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify(params),
+            });
+            const data = await response.json();
+
+            if (response.status === 401 && data.message === "Token expired! Please login again") {
+                showMessage(data.message, 'error');
+                router.push('/auth/boxed-signin');
+                throw new Error('Token expired');
+            }
+
+            if (!response.ok) {
+                showMessage(data.message, 'error');
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            setContacts(data.data);
+        } catch (error) {
+            console.error('Error fetching contacts:', error);
+        }
+    };
+
     const viewUser = (_id: any = null) => {
         const user = filteredItems.find((u: any) => u._id === _id);
         setCurrentUser(user);
@@ -419,7 +463,7 @@ const ComponentsAppsGroups = () => {
                     });
 
                     if (!response.ok) {
-                        showMessage('Failed to import contacts', 'error')
+                        showMessage('Failed to import contacts', 'error');
                         throw new Error('Failed to import contacts');
                     }
 
@@ -432,13 +476,25 @@ const ComponentsAppsGroups = () => {
                             setIsInvalidModalOpen(true);
                         } else {
                             if (result.data?.length > 0) {
-                                setFilteredItems([...filteredItems, ...result.data]);
+                                const uniqueItems = [
+                                    ...filteredItems,
+                                    ...result.data.filter(
+                                        (newItem: any) => !filteredItems.some((existingItem: any) => existingItem._id === newItem._id)
+                                    ),
+                                ];
+                                setFilteredItems(uniqueItems);
                             }
                             showMessage(result.message);
                         }
                     } else {
                         if (result.data?.length > 0) {
-                            setFilteredItems([...filteredItems, ...result.data]);
+                            const uniqueItems = [
+                                ...filteredItems,
+                                ...result.data.filter(
+                                    (newItem: any) => !filteredItems.some((existingItem: any) => existingItem._id === newItem._id)
+                                ),
+                            ];
+                            setFilteredItems(uniqueItems);
                         }
                         showMessage(result.message);
                     }
@@ -488,14 +544,17 @@ const ComponentsAppsGroups = () => {
             }
 
             const result = await response.json();
-
             const newInvalidEntries = result.changes?.filter((item: any) => item.action === 'invalid');
             if (newInvalidEntries?.length > 0) {
                 setInvalidEntries(newInvalidEntries);
                 setIsInvalidModalOpen(true);
             } else {
                 if (result.data?.length > 0) {
-                    setFilteredItems([...filteredItems, ...result.data]);
+                    const uniqueItems = [
+                        ...filteredItems,
+                        ...result.data.filter((newItem: any) => !filteredItems.some((existingItem: any) => existingItem._id === newItem._id)),
+                    ];
+                    setFilteredItems(uniqueItems);
                 }
                 showMessage(result.message);
                 setIsInvalidModalOpen(false);
@@ -659,38 +718,47 @@ const ComponentsAppsGroups = () => {
     const handleProfilePicture = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target?.files?.[0];
         if (file) {
-            if (params._id) {
-                const whatsapp_number = String(params.whatsapp_number).trim().replace('+', '');
+            setLoading(true);
+            try {
+                if (params._id) {
+                    const whatsapp_number = String(params.whatsapp_number).trim().replace('+', '');
+                    const formData = new FormData();
+                    formData.append("profile_picture", file);
+                    formData.append("_id", params._id);
 
-                const formData = new FormData();
-                formData.append("profile_picture", file);
-                formData.append("_id", params._id);
-
-                const response = await fetch(`${apis.updateClientProfile}?whatsapp_number=${whatsapp_number}`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    body: formData,
-                });
-                const data = await response.json();
-                if (!response.ok) {
-                    showMessage("Profile Picture Upload Failed, Please select again", 'error')
-                }
-                setFilteredItems((prevItems: any) => {
-                    return prevItems.map((item: any) => {
-                        if (item._id === params._id) {
-                            return {
-                                ...item,
-                                ...data.data,
-                            };
-                        }
-                        return item;
+                    const response = await fetch(`${apis.updateClientProfile}?whatsapp_number=${whatsapp_number}`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                        },
+                        body: formData,
                     });
-                });
-                showMessage(data.message);
-            } else {
-                setParams({ ...params, profile_picture: file });
+
+                    const data = await response.json();
+                    if (!response.ok) {
+                        showMessage("Profile Picture Upload Failed, Please select again", 'error');
+                    } else {
+                        setFilteredItems((prevItems: any) => {
+                            return prevItems.map((item: any) => {
+                                if (item._id === params._id) {
+                                    setParams(data.data);
+                                    return {
+                                        ...item,
+                                        ...data.data,
+                                    };
+                                }
+                                return item;
+                            });
+                        });
+                        showMessage(data.message + " Please check contact in list");
+                    }
+                } else {
+                    setParams({ ...params, profile_picture: file });
+                }
+            } catch (error) {
+                showMessage('An error occurred while uploading. Please try again.', 'error');
+            } finally {
+                setLoading(false);
             }
         } else {
             showMessage('No file selected. Please choose a file.', 'error');
@@ -700,52 +768,53 @@ const ComponentsAppsGroups = () => {
     const handleCompanyProfilePicture = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target?.files?.[0];
         if (file) {
-            if (params._id) {
-                const whatsapp_number = String(params.whatsapp_number).trim().replace('+', '');
+            setIsCompanyLoading(true);
+            try {
+                if (params._id) {
+                    const whatsapp_number = String(params.whatsapp_number).trim().replace('+', '');
 
-                const formData = new FormData();
-                formData.append("company_profile_picture", file);
-                formData.append("_id", params._id);
+                    const formData = new FormData();
+                    formData.append("company_profile_picture", file);
+                    formData.append("_id", params._id);
 
-                const response = await fetch(`${apis.updateClientCompanyProfile}?whatsapp_number=${whatsapp_number}`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    body: formData,
-                });
-                const data = await response.json();
-                if (!response.ok) {
-                    showMessage("Company Profile Picture Upload Failed, Please select again", 'error')
-                }
-                setFilteredItems((prevItems: any) => {
-                    return prevItems.map((item: any) => {
-                        if (item._id === params._id) {
-                            return {
-                                ...item,
-                                ...data.data,
-                            };
-                        }
-                        return item;
+                    const response = await fetch(`${apis.updateClientCompanyProfile}?whatsapp_number=${whatsapp_number}`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                        },
+                        body: formData,
                     });
-                });
-                showMessage(data.message);
-            } else {
-                setParams({ ...params, company_profile_picture: file });
+
+                    const data = await response.json();
+                    if (!response.ok) {
+                        showMessage("Company Profile Picture Upload Failed, Please select again", 'error');
+                    } else {
+                        setFilteredItems((prevItems: any) => {
+                            return prevItems.map((item: any) => {
+                                if (item._id === params._id) {
+                                    setParams(data.data);
+                                    return {
+                                        ...item,
+                                        ...data.data,
+                                    };
+                                }
+                                return item;
+                            });
+                        });
+                        showMessage(data.message);
+                    }
+                } else {
+                    setParams({ ...params, company_profile_picture: file });
+                }
+            } catch (error) {
+                showMessage('An error occurred while uploading. Please try again.', 'error');
+            } finally {
+                setIsCompanyLoading(false);
             }
         } else {
             showMessage('No file selected. Please choose a file.', 'error');
         }
-    };
-
-    const viewFavouriteContacts = () => {
-        const favouriteContacts = filteredItems.filter((contact: any) => contact.isFavorite === 'yes');
-        setFilteredItems(favouriteContacts);
-    };
-
-    const viewAll = () => {
-        setFilteredItems(members);
-    };
+    }
 
     const toggleFavorite = async (_id: any) => {
         const filteredItem = filteredItems?.map((contact: any) =>
@@ -830,86 +899,221 @@ const ComponentsAppsGroups = () => {
         }
     };
 
+    const handleRemoveProfileImage = async () => {
+        try {
+            const whatsapp_number = String(params.whatsapp_number).trim().replace('+', '');
+            const formData = new FormData();
+            formData.append("profile_picture", '');
+            formData.append("_id", params._id);
+
+            const response = await fetch(`${apis.updateClientProfile}?whatsapp_number=${whatsapp_number}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                showMessage("Profile Picture Upload Failed, Please select again", 'error');
+            } else {
+                setFilteredItems((prevItems: any) => {
+                    return prevItems.map((item: any) => {
+                        if (item._id === params._id) {
+                            setParams(data.data);
+                            return {
+                                ...item,
+                                ...data.data,
+                            };
+                        }
+                        return item;
+                    });
+                });
+                showMessage(data.message + " Please check contact in list");
+            }
+        } catch (error) {
+            showMessage("Update Failed, Please try again.", 'error');
+        }
+    };
+
+    const handleRemoveLogoImage = async () => {
+        try {
+            const whatsapp_number = String(params.whatsapp_number).trim().replace('+', '');
+
+            const formData = new FormData();
+            formData.append("company_profile_picture", '');
+            formData.append("_id", params._id);
+
+            const response = await fetch(`${apis.updateClientCompanyProfile}?whatsapp_number=${whatsapp_number}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                showMessage("Company Profile Picture Upload Failed, Please select again", 'error');
+            } else {
+                setFilteredItems((prevItems: any) => {
+                    return prevItems.map((item: any) => {
+                        if (item._id === params._id) {
+                            setParams(data.data);
+                            return {
+                                ...item,
+                                ...data.data,
+                            };
+                        }
+                        return item;
+                    });
+                });
+                showMessage(data.message);
+            }
+        } catch (error) {
+            showMessage("Update Failed, Please try again.", 'error');
+        }
+    };
+
+    const handleCheckboxChangeAdd = (contact: any) => {
+        setSelectedContacts((prevSelected) => {
+            if (prevSelected.includes(contact)) {
+                return prevSelected.filter((item) => item !== contact);
+            } else {
+                return [...prevSelected, contact];
+            }
+        });
+    };
+
+    const handleAddToGroup = async () => {
+        if (!selectedContacts.length || !selectedGroup) {
+            showMessage("Please select contacts and a group.", "error");
+            return;
+        }
+
+        const Ids = selectedContacts.map(contact => contact._id);
+        const params = {
+            Ids: Ids,
+            groupId: selectedGroup,
+        };
+
+        try {
+            const response = await fetch(apis.addContactsToGroup, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify(params),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                const uniqueItems = [...filteredItems];
+
+                data.data.forEach((newItem: any) => {
+                    const index = uniqueItems.findIndex(item => item._id === newItem._id);
+                    if (index !== -1) {
+                        uniqueItems[index] = newItem;
+                    } else {
+                        uniqueItems.push(newItem);
+                    }
+                });
+                setFilteredItems(uniqueItems);
+                showMessage(data.message);
+            } else {
+                showMessage(`Failed to update user: ${data.message}`, 'error');
+            }
+        } catch (error: any) {
+            showMessage(`An error occurred: ${error.message}`, 'error');
+        } finally {
+            setSelectedContacts([]);
+            setNewAdd(false);
+        }
+    };
+
+    const handleSelectAll = (isChecked: any) => {
+        if (isChecked) {
+            setSelectedContacts([...contacts]);
+        } else {
+            setSelectedContacts([]);
+        }
+    };
+
+    const filteredContacts = contacts.filter((contact: any) =>
+        contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        contact.whatsapp_number.includes(searchQuery)
+    );
+
+    const totalPages = Math.ceil(filteredContacts.length / entriesPerPage);
+
+    const paginatedContacts = filteredContacts.slice(
+        (currentPage - 1) * entriesPerPage,
+        currentPage * entriesPerPage
+    );
+
+    const isAllSelectedAdd = paginatedContacts.every((contact: any) =>
+        selectedContacts.includes(contact)
+    );
+
     /*OVER CLIENT */
+
+    type RecordType = {
+        profile_picture?: { url: string };
+        company_profile_picture?: { url: string };
+        name?: string;
+        _id: string;
+        isFavorite: string;
+    };
+
     return (
         <div>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-                {/* Left Side: Action Buttons */}
-                <div className="flex gap-3 flex-wrap items-center">
-                    <div>
+            <div>
+                <div className="flex items-center justify-between gap-4">
+                    <div className="flex gap-3 items-center">
                         {selectedGroup?.length > 0 ? (
                             <>
                                 <button
                                     type="button"
-                                    className="btn btn-outline-success"
+                                    className="btn p-0 bg-transparent border-0"
                                     onClick={() => {
                                         setFilteredItems(groupList);
                                         setSelectedGroup(null);
                                     }}
                                 >
-                                    <IconArrowBackward className="ltr:mr-2 rtl:ml-2" />
-                                    Go to All Groups
+                                    <IconArrowBackward className="text-primary" />
                                 </button>
-                                <br />
-                                <div className="flex flex-wrap items-center justify-between gap-4">
-                                    <div className="flex gap-3 flex-wrap items-center">
-                                        <div>
-                                            <button type="button" className="btn btn-primary" onClick={() => editUser()}>
-                                                <IconUserPlus className="ltr:mr-2 rtl:ml-2" />
-                                                Add Contact
-                                            </button>
-                                        </div>
-                                        <button type="button" className="btn btn-warning gap-2" onClick={() => exportContacts(selectedGroup)} >
-                                            <IconSend />
-                                            Export Contacts
-                                        </button>
-                                        <div className="dropdown">
-                                            <Dropdown
-                                                placement={`${isRtl ? 'bottom-start' : 'bottom-end'}`}
-                                                btnClassName="btn btn-success gap-2 dropdown-toggle"
-                                                button={
-                                                    <>
-                                                        <IconDownload />
-                                                        Import Contacts
-                                                        <span>
-                                                            <IconCaretDown className="inline-block ltr:ml-1 rtl:mr-1" />
-                                                        </span>
-                                                    </>
-                                                }
-                                            >
-                                                <ul className="!min-w-[170px]">
-                                                    <li>
-                                                        <button type="button" onClick={() => importContacts(selectedGroup)}>Import Contacts</button>
-                                                    </li>
-                                                </ul>
-                                            </Dropdown>
-                                        </div>
-                                        {selectedRecords.length > 0 && (
-                                            <button type="button" className="btn btn-danger gap-2" onClick={deleteContacts}>
-                                                <IconTrashLines />
-                                                Delete selected contacts ({selectedRecords.length})
-                                            </button>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-2 ml-auto">
-                                        <div className="dropdown">
-                                            <Dropdown
-                                                placement={`${isRtl ? 'bottom-start' : 'bottom-end'}`}
-                                                btnClassName="btn p-0 rounded-none border-0 shadow-none dropdown-toggle"
-                                                button={<IconHorizontalDots className="h-6 w-6 opacity-70" />}
-                                            >
-                                                <ul className="!min-w-[170px]">
-                                                    <li>
-                                                        <button type="button" onClick={viewFavouriteContacts}>View Favourite Contacts</button>
-                                                    </li>
-                                                    <li>
-                                                        <button type="button" onClick={viewAll}>View All Contacts</button>
-                                                    </li>
-                                                </ul>
-                                            </Dropdown>
-                                        </div>
-                                    </div>
-                                </div>
+                                <button type="button" className="btn btn-primary" onClick={() => editUser()}>
+                                    <IconUserPlus className="ltr:mr-2 rtl:ml-2" />
+                                    Create Contact
+                                </button>
+                                <button type="button" className="btn btn-primary" onClick={() => addUser()}>
+                                    <IconPlusCircle className="ltr:mr-2 rtl:ml-2" />
+                                    Add Contact
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-warning gap-2"
+                                    onClick={() => exportContacts(selectedGroup)}
+                                >
+                                    <IconSend />
+                                    Export Contacts
+                                </button>
+                                <button
+                                    className="btn btn-success gap-2"
+                                    onClick={() => importContacts(selectedGroup)}
+                                >
+                                    <IconDownload />
+                                    Import
+                                </button>
+                                {selectedRecords.length > 0 && (
+                                    <button type="button" className="btn btn-danger gap-2" onClick={deleteContacts}>
+                                        <IconTrashLines />
+                                        Delete selected contacts ({selectedRecords.length})
+                                    </button>
+                                )}
                             </>
                         ) : (
                             <button
@@ -922,46 +1126,50 @@ const ComponentsAppsGroups = () => {
                             </button>
                         )}
                     </div>
-                </div>
 
-                {/* Right Side: Search and Additional Dropdown */}
-                <div className="flex items-center gap-2 ml-auto">
-                    {selectedGroup?.length > 0 ? (
-                        <div className="relative sm:w-auto w-full max-w-xs">
-                            <input
-                                type="text"
-                                placeholder="Search..."
-                                className="peer form-input py-2 ltr:pr-11 rtl:pl-11 w-full"
-                                value={search}
-                                onChange={(e) => searchContact(e)}
-                            />
-                            <button
-                                type="button"
-                                className="absolute top-1/2 -translate-y-1/2 peer-focus:text-primary ltr:right-[11px] rtl:left-[11px]"
-                            >
-                                <IconSearch className="mx-auto" />
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="relative sm:w-auto w-full max-w-xs">
-                            <input
-                                type="text"
-                                placeholder="Search..."
-                                className="peer form-input py-2 ltr:pr-11 rtl:pl-11 w-full"
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                            />
-                            <button
-                                type="button"
-                                className="absolute top-1/2 -translate-y-1/2 peer-focus:text-primary ltr:right-[11px] rtl:left-[11px]"
-                            >
-                                <IconSearch className="mx-auto" />
-                            </button>
-                        </div>
-                    )}
+                    <div className="flex items-center gap-4">
+                        {selectedGroup?.length > 0 ? (
+                            <div className="relative sm:w-auto w-full max-w-xs">
+                                <input
+                                    type="text"
+                                    placeholder="Search..."
+                                    className="peer form-input py-2 ltr:pr-11 rtl:pl-11 w-full"
+                                    value={searchClient}
+                                    onChange={(e) => { searchContact(e); setSearchClient(e.target.value); }}
+                                />
+                                <button
+                                    type="button"
+                                    className="absolute top-1/2 -translate-y-1/2 peer-focus:text-primary ltr:right-[11px] rtl:left-[11px]"
+                                >
+                                    <IconSearch className="mx-auto" />
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="relative sm:w-auto w-full max-w-xs">
+                                <input
+                                    type="text"
+                                    placeholder="Search..."
+                                    className="peer form-input py-2 ltr:pr-11 rtl:pl-11 w-full"
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                />
+                                <button
+                                    type="button"
+                                    className="absolute top-1/2 -translate-y-1/2 peer-focus:text-primary ltr:right-[11px] rtl:left-[11px]"
+                                >
+                                    <IconSearch className="mx-auto" />
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
+                <br />
+                {filteredItems.length > 0 && (
+                    <span className="flex items-center gap-4">
+                        Total Items : ({filteredItems.length})
+                    </span>
+                )}
             </div>
-
             <br />
             <div className="datatables pagination-padding">
                 {!selectedGroup ? (
@@ -986,56 +1194,26 @@ const ComponentsAppsGroups = () => {
                                 sortable: true,
                             },
                             {
-                                accessor: 'createdAt',
-                                sortable: true,
-                                render: (record: any) => {
-                                    const { createdAt } = record as any;
-                                    return (
-                                        <div className="text-gray-700 dark:text-gray-300">
-                                            {new Date(createdAt).toLocaleString(undefined, {
-                                                year: 'numeric',
-                                                month: 'short',
-                                                day: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                            })}
-                                        </div>
-                                    );
-                                },
-                            },
-                            {
-                                accessor: 'updatedAt',
-                                sortable: true,
-                                render: ({ updatedAt }) => (
-                                    <div className="text-gray-700 dark:text-gray-300">
-                                        {new Date(updatedAt).toLocaleString(undefined, {
-                                            year: 'numeric',
-                                            month: 'short',
-                                            day: 'numeric',
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                        })}
-                                    </div>
-                                ),
-                            },
-                            {
                                 accessor: 'action',
                                 title: 'Actions',
                                 sortable: false,
                                 textAlignment: 'center',
-                                render: ({ _id, groupId }) => (
-                                    <div className="mx-auto flex w-max items-center gap-4">
-                                        <button className="flex hover:text-info" onClick={() => editGroup(groupId)}>
-                                            <IconEdit className="h-4.5 w-4.5" />
-                                        </button>
-                                        <button className="flex hover:text-primary" onClick={() => viewGroup(groupId)}>
-                                            <IconEye />
-                                        </button>
-                                        <button type="button" className="flex hover:text-danger" onClick={(e) => deleteGroup(_id)}>
-                                            <IconTrashLines />
-                                        </button>
-                                    </div>
-                                ),
+                                render: (record: any) => {
+                                    const { _id, groupId } = record;
+                                    return (
+                                        <div className="mx-auto flex w-max items-center gap-4">
+                                            <button className="flex hover:text-info" onClick={() => editGroup(groupId)}>
+                                                <IconEdit className="h-4.5 w-4.5" />
+                                            </button>
+                                            <button className="flex hover:text-primary" onClick={() => viewGroup(groupId)}>
+                                                <IconEye />
+                                            </button>
+                                            <button type="button" className="flex hover:text-danger" onClick={() => deleteGroup(_id)}>
+                                                <IconTrashLines />
+                                            </button>
+                                        </div>
+                                    );
+                                },
                             },
                         ]}
                         highlightOnHover
@@ -1055,7 +1233,7 @@ const ComponentsAppsGroups = () => {
                     />
                 ) : (
                     <div className="datatables pagination-padding">
-                        <DataTable
+                        <DataTable<RecordType>
                             className="table-hover whitespace-nowrap"
                             records={filteredItems}
                             columns={[
@@ -1077,34 +1255,51 @@ const ComponentsAppsGroups = () => {
                                     ),
                                 },
                                 {
-                                    accessor: 'company_profile_picture',
                                     title: 'Logo',
+                                    accessor: 'company_profile_picture',
                                     sortable: true,
-                                    render: (record) => {
-                                        const { company_profile_picture } = record as { company_profile_picture: { url?: string } };
-                                        return company_profile_picture?.url ? (
+                                    render: (record: { company_profile_picture?: { url: string } }) => (
+                                        record.company_profile_picture?.url ? (
                                             <div className="flex items-center font-semibold">
-                                                <div className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2" onClick={() => openModal(company_profile_picture.url)}>
-                                                    <img className="h-8 w-8 rounded-full object-cover" src={company_profile_picture.url} alt="" />
+                                                <div
+                                                    className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2"
+                                                    onClick={() => {
+                                                        const url = record?.company_profile_picture?.url;
+                                                        if (url) {
+                                                            openModal(url);
+                                                        }
+                                                    }}
+                                                >
+                                                    <img
+                                                        className="h-8 w-8 rounded-full object-cover"
+                                                        src={record?.company_profile_picture?.url}
+                                                        alt=""
+                                                    />
                                                 </div>
                                             </div>
-                                        ) : null;
-                                    },
+                                        ) : null
+                                    ),
                                 },
                                 {
                                     accessor: 'name',
                                     sortable: true,
-                                    render: (record) => {
-                                        const { profile_picture, name } = record as { profile_picture: { url?: string }, name: any };
-                                        return profile_picture?.url ? (
-                                            <div className="flex items-center font-semibold">
-                                                <div className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2" onClick={() => openModal(profile_picture?.url)}>
-                                                    <img className="h-8 w-8 rounded-full object-cover" src={profile_picture?.url} alt="" />
+                                    render: (record: { profile_picture?: { url: string }; name?: string }) => (
+                                        <div className="flex items-center font-semibold">
+                                            {record.profile_picture?.url && (
+                                                <div
+                                                    className="w-max rounded-full bg-white-dark/30 p-0.5 ltr:mr-2 rtl:ml-2"
+                                                    onClick={() => openModal(record.profile_picture?.url || '')}
+                                                >
+                                                    <img
+                                                        className="h-8 w-8 rounded-full object-cover"
+                                                        src={record.profile_picture.url}
+                                                        alt={record.name || 'Image'}
+                                                    />
                                                 </div>
-                                                <div>{name}</div>
-                                            </div>
-                                        ) : <div>{name}</div>;
-                                    },
+                                            )}
+                                            <div>{record.name || 'Unnamed'}</div>
+                                        </div>
+                                    ),
                                 },
                                 {
                                     accessor: 'email',
@@ -1137,63 +1332,40 @@ const ComponentsAppsGroups = () => {
                                 },
                                 {
                                     accessor: 'mobile_number',
+                                    title: 'Mobile',
                                     sortable: true,
                                 },
                                 {
                                     accessor: 'whatsapp_number',
+                                    title: 'Whatsapp',
                                     sortable: true,
                                 },
                                 {
                                     accessor: 'company_name',
+                                    title: 'Company',
                                     sortable: true,
                                 },
                                 {
-                                    accessor: 'createdAt',
+                                    accessor: 'city',
                                     sortable: true,
-                                    render: ({ createdAt }) => (
-                                        <div className="text-gray-700 dark:text-gray-300">
-                                            {new Date(createdAt).toLocaleString(undefined, {
-                                                year: 'numeric',
-                                                month: 'short',
-                                                day: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                            })}
-                                        </div>
-                                    ),
-                                },
-                                {
-                                    accessor: 'updatedAt',
-                                    sortable: true,
-                                    render: ({ updatedAt }) => (
-                                        <div className="text-gray-700 dark:text-gray-300">
-                                            {new Date(updatedAt).toLocaleString(undefined, {
-                                                year: 'numeric',
-                                                month: 'short',
-                                                day: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                            })}
-                                        </div>
-                                    ),
                                 },
                                 {
                                     accessor: 'action',
                                     title: 'Actions',
                                     sortable: false,
                                     textAlignment: 'center',
-                                    render: ({ isFavorite, _id }) => (
+                                    render: (record: { _id: string; isFavorite: string }) => (
                                         <div className="mx-auto flex w-max items-center gap-4">
-                                            <button onClick={() => toggleFavorite(_id)} className="ml-2">
-                                                {isFavorite === "yes" ? <FaStar className="text-yellow-500" /> : <FaRegStar />}
+                                            <button onClick={() => toggleFavorite(record._id)} className="ml-2">
+                                                {record.isFavorite === "yes" ? <FaStar className="text-yellow-500" /> : <FaRegStar />}
                                             </button>
-                                            <button className="flex hover:text-info" onClick={() => editUser(_id)}>
+                                            <button className="flex hover:text-info" onClick={() => editUser(record._id)}>
                                                 <IconEdit className="h-4.5 w-4.5" />
                                             </button>
-                                            <button className="flex hover:text-primary" onClick={() => viewUser(_id)}>
+                                            <button className="flex hover:text-primary" onClick={() => viewUser(record._id)}>
                                                 <IconEye />
                                             </button>
-                                            <button type="button" className="flex hover:text-danger" onClick={(e) => deleteUser(_id)}>
+                                            <button type="button" className="flex hover:text-danger" onClick={(e) => deleteUser(record._id)}>
                                                 <IconTrashLines />
                                             </button>
                                         </div>
@@ -1387,7 +1559,7 @@ const ComponentsAppsGroups = () => {
                                                     htmlFor="mobile_number"
                                                     className="block font-medium text-gray-700 dark:text-gray-300"
                                                 >
-                                                    Mobile Number <span className="text-red-500">*</span>
+                                                    Mobile Number
                                                 </label>
                                                 <input
                                                     id="mobile_number"
@@ -1405,6 +1577,61 @@ const ComponentsAppsGroups = () => {
                                                 )}
                                             </div>
 
+                                            {/* Other Fields (Instagram, Facebook, etc.) */}
+                                            <div className="mb-5">
+                                                <label htmlFor="website" className="block font-medium text-gray-700 dark:text-gray-300">
+                                                    Website
+                                                </label>
+                                                <input
+                                                    id="website"
+                                                    type="text"
+                                                    placeholder="Enter Website"
+                                                    className="form-input mt-1 block w-full rounded-md border border-gray-300 shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                                                    value={params.website}
+                                                    onChange={(e) => changeValue(e)}
+                                                />
+                                            </div>
+
+                                            <div className="mb-5">
+                                                <label htmlFor="city" className="block font-medium text-gray-700 dark:text-gray-300">
+                                                    City
+                                                </label>
+                                                <input
+                                                    id="city"
+                                                    type="text"
+                                                    placeholder="Enter City"
+                                                    className="form-input mt-1 block w-full rounded-md border border-gray-300 shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                                                    value={params.city}
+                                                    onChange={(e) => changeValue(e)}
+                                                />
+                                            </div>
+                                            <div className="mb-5">
+                                                <label htmlFor="district" className="block font-medium text-gray-700 dark:text-gray-300">
+                                                    District
+                                                </label>
+                                                <input
+                                                    id="district"
+                                                    type="text"
+                                                    placeholder="Enter District"
+                                                    className="form-input mt-1 block w-full rounded-md border border-gray-300 shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                                                    value={params.district}
+                                                    onChange={(e) => changeValue(e)}
+                                                />
+                                            </div>
+                                            <div className="mb-5">
+                                                <label htmlFor="address" className="block font-medium text-gray-700 dark:text-gray-300">
+                                                    Address
+                                                </label>
+                                                <input
+                                                    id="address"
+                                                    type="text"
+                                                    placeholder="Enter Address"
+                                                    className="form-input mt-1 block w-full rounded-md border border-gray-300 shadow-sm dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200"
+                                                    value={params.address}
+                                                    onChange={(e) => changeValue(e)}
+                                                />
+                                            </div>
+
                                             {/* Instagram ID */}
                                             <div className="mb-5">
                                                 <label htmlFor="instagramID">Instagram ID</label>
@@ -1417,26 +1644,66 @@ const ComponentsAppsGroups = () => {
                                                 <input id="facebookID" type="text" placeholder="Enter Facebook ID" className="form-input" value={params.facebookID} onChange={(e) => changeValue(e)} />
                                             </div>
 
-                                            <div>
-                                                <label htmlFor="profile_picture">Profile Picture</label>
-                                                <input
-                                                    id="profile_picture"
-                                                    accept="image/*"
-                                                    type="file"
-                                                    className="rtl:file-ml-5 form-input p-0 file:border-0 file:bg-primary/90 file:px-4 file:py-2 file:font-semibold file:text-white file:hover:bg-primary ltr:file:mr-5"
-                                                    onChange={(event) => handleProfilePicture(event)}
-                                                />
+                                            <div className="mb-5">
+                                                <label htmlFor="profile_picture" className="block font-medium text-gray-700 dark:text-gray-300">
+                                                    Profile Picture
+                                                </label>
+                                                {!params.profile_picture && (
+                                                    <input
+                                                        id="profile_picture"
+                                                        accept="image/*"
+                                                        type="file"
+                                                        className={`form-input file:rounded-md file:border-0 file:bg-primary file:text-white file:px-4 file:py-2 hover:file:bg-primary-dark ${loading ? "opacity-50 cursor-not-allowed" : ""
+                                                            }`}
+                                                        onChange={(event) => handleProfilePicture(event)}
+                                                        disabled={loading}
+                                                    />
+                                                )}
+                                                {params.profile_picture && (
+                                                    <div className="mt-2 flex items-center">
+                                                        <p className="text-sm text-gray-600">
+                                                            Selected Image: {params.profile_picture.name ? params.profile_picture.name : params.profile_picture.filename}
+                                                        </p>
+                                                        <button
+                                                            type="button"
+                                                            className="ml-2 text-red-500 hover:text-red-700"
+                                                            onClick={handleRemoveProfileImage}
+                                                        >
+                                                            &times;
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <br />
-                                            <div>
-                                                <label htmlFor="company_profile_picture">Company Profile Picture</label>
-                                                <input
-                                                    id="company_profile_picture"
-                                                    accept="image/*"
-                                                    type="file"
-                                                    className="rtl:file-ml-5 form-input p-0 file:border-0 file:bg-primary/90 file:px-4 file:py-2 file:font-semibold file:text-white file:hover:bg-primary ltr:file:mr-5"
-                                                    onChange={(e) => handleCompanyProfilePicture(e)}
-                                                />
+
+                                            <div className="mb-5">
+                                                <label htmlFor="company_profile_picture" className="block font-medium text-gray-700 dark:text-gray-300">
+                                                    Logo
+                                                </label>
+                                                {!params.company_profile_picture && (
+                                                    <input
+                                                        id="company_profile_picture"
+                                                        accept="image/*"
+                                                        type="file"
+                                                        className={`form-input file:rounded-md file:border-0 file:bg-primary file:text-white file:px-4 file:py-2 hover:file:bg-primary-dark ${isCompanyLoading ? "opacity-50 cursor-not-allowed" : ""
+                                                            }`}
+                                                        onChange={(e) => handleCompanyProfilePicture(e)}
+                                                        disabled={isCompanyLoading}
+                                                    />
+                                                )}
+                                                {params.company_profile_picture && (
+                                                    <>
+                                                        <div className="mt-2 flex items-center">
+                                                            <p className="mt-2 text-sm text-gray-600">Selected Image: {params.company_profile_picture.name ? params.company_profile_picture.name : params.company_profile_picture.filename}</p>
+                                                            <button
+                                                                type="button"
+                                                                className="ml-2 text-red-500 hover:text-red-700"
+                                                                onClick={handleRemoveLogoImage}
+                                                            >
+                                                                &times;
+                                                            </button>
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
 
                                             {/* Buttons */}
@@ -1488,6 +1755,155 @@ const ComponentsAppsGroups = () => {
                                 </Dialog.Panel>
                             </Transition.Child>
                         </div>
+                    </div>
+                </Dialog>
+            </Transition>
+
+            <Transition appear show={newAdd} as={Fragment}>
+                <Dialog
+                    as="div"
+                    open={newAdd}
+                    onClose={() => setNewAdd(false)}
+                    className="relative z-50"
+                >
+                    <Transition.Child
+                        as={Fragment}
+                        enter="ease-out duration-300"
+                        enterFrom="opacity-0"
+                        enterTo="opacity-100"
+                        leave="ease-in duration-200"
+                        leaveFrom="opacity-100"
+                        leaveTo="opacity-0"
+                    >
+                        <div className="fixed inset-0 bg-[black]/60" />
+                    </Transition.Child>
+                    <div className="fixed inset-0 flex items-center justify-center px-2 py-4">
+                        <Transition.Child
+                            as={Fragment}
+                            enter="ease-out duration-300"
+                            enterFrom="opacity-0 scale-95"
+                            enterTo="opacity-100 scale-100"
+                            leave="ease-in duration-200"
+                            leaveFrom="opacity-100 scale-100"
+                            leaveTo="opacity-0 scale-95"
+                        >
+                            <Dialog.Panel className="w-full max-w-lg rounded-lg bg-white dark:bg-gray-800 text-black dark:text-white">
+                                <div className="relative flex items-center justify-between bg-gray-100 dark:bg-gray-900 py-2 px-3">
+                                    <h2 className="text-base font-semibold">Add Contacts</h2>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setNewAdd(false);
+                                            setLoading(false);
+                                        }}
+                                        className="text-gray-400 hover:text-gray-800 dark:hover:text-gray-600"
+                                    >
+                                        <IconX />
+                                    </button>
+                                </div>
+                                <div className="p-3">
+                                    {/* Filters Section */}
+                                    <div className="flex justify-between items-center text-sm mb-2">
+                                        <div>
+                                            Show{" "}
+                                            <select
+                                                value={entriesPerPage}
+                                                onChange={(e) => {
+                                                    setEntriesPerPage(Number(e.target.value));
+                                                    setCurrentPage(1);
+                                                }}
+                                                className="border rounded px-1 py-1"
+                                            >
+                                                <option value={10}>10</option>
+                                                <option value={20}>20</option>
+                                                <option value={50}>50</option>
+                                            </select>{" "}
+                                            entries
+                                        </div>
+                                        <div>Page {currentPage} of {totalPages}</div>
+                                    </div>
+
+                                    {/* Search Bar */}
+                                    <div className="mb-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Search Contacts..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="w-full border rounded px-2 py-1 text-sm"
+                                        />
+                                    </div>
+
+                                    {/* Table */}
+                                    <div className="overflow-auto max-h-[300px]">
+                                        <table className="w-full border-collapse border border-gray-300 text-sm">
+                                            <thead>
+                                                <tr className="bg-gray-200">
+                                                    <th className="border border-gray-300 px-2 py-1 text-center">
+                                                        <input
+                                                            type="checkbox"
+                                                            className="cursor-pointer"
+                                                            checked={isAllSelectedAdd}
+                                                            onChange={(e) => handleSelectAll(e.target.checked)}
+                                                        />
+                                                    </th>
+                                                    <th className="border border-gray-300 px-2 py-1 text-left">Name</th>
+                                                    <th className="border border-gray-300 px-2 py-1 text-left">WhatsApp Number</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {paginatedContacts.map((contact: any) => (
+                                                    <tr key={contact._id} className="hover:bg-gray-100">
+                                                        <td className="border border-gray-300 px-2 py-1 text-center">
+                                                            <input
+                                                                type="checkbox"
+                                                                className="cursor-pointer"
+                                                                checked={selectedContacts.includes(contact)}
+                                                                onChange={() => handleCheckboxChangeAdd(contact)}
+                                                            />
+                                                        </td>
+                                                        <td className="border border-gray-300 px-2 py-1">{contact.name}</td>
+                                                        <td className="border border-gray-300 px-2 py-1">{contact.whatsapp_number}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Pagination and Selected Count */}
+                                    <div className="flex justify-between items-center mt-2 text-sm">
+                                        <div>Selected Contacts: <span className="font-bold">{selectedContacts.length}</span></div>
+                                        <div className="flex space-x-2">
+                                            <button
+                                                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                                                className="px-2 py-1 bg-gray-200 rounded disabled:opacity-50"
+                                                disabled={currentPage === 1}
+                                            >
+                                                Previous
+                                            </button>
+                                            <button
+                                                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                                                className="px-2 py-1 bg-gray-200 rounded disabled:opacity-50"
+                                                disabled={currentPage === totalPages}
+                                            >
+                                                Next
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Add to Group Button */}
+                                    <div className="flex justify-end mt-2">
+                                        <button
+                                            onClick={handleAddToGroup}
+                                            className="px-4 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                                            disabled={selectedContacts.length === 0}
+                                        >
+                                            Add to Group
+                                        </button>
+                                    </div>
+                                </div>
+                            </Dialog.Panel>
+                        </Transition.Child>
                     </div>
                 </Dialog>
             </Transition>

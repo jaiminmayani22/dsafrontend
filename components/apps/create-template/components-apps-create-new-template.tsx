@@ -37,10 +37,8 @@ const ComponentsAppsCreateNewTemplate = () => {
 
     const [isUploading, setIsUploading] = useState<any>(false);
     const [templateImages, setTemplateImages] = useState<any>(null);
-    const [templateVideos, setTemplateVideos] = useState<any>(null);
     const fileInputRef = useRef<any>(null);
     const formatInputRef = useRef<any>(null);
-    const [allTemplates, setAllTemplates] = useState<any>(null);
     const [variables, setAllVariables] = useState<any>([]);
     const [templateName, setTemplateName] = useState<any>('');
     const [variableKey, setVariableKey] = useState<any>('');
@@ -62,10 +60,10 @@ const ComponentsAppsCreateNewTemplate = () => {
         `Bottom-Middle-Up (x${width / 2}-y${height - 80})`,
         `Bottom Middle (x${width / 2}-y${height - 50})`,
         `Bottom-Middle-Down (x${width / 2}-y${height - 20})`,
-        // `Bottom Right (x${width - 140}-y${height - 50})`,
-        `Bottom-Right-Up (x${width - 140}-y${height - 80})`,
-        `Bottom Right (x${width - 140}-y${height - 50})`,
-        `Bottom-Right-Down (x${width - 140}-y${height - 20})`,
+        // `Bottom Right (x${width - 160}-y${height - 50})`,
+        `Bottom-Right-Up (x${width - 160}-y${height - 80})`,
+        `Bottom Right (x${width - 160}-y${height - 50})`,
+        `Bottom-Right-Down (x${width - 160}-y${height - 20})`,
     ];
     const [selectedPosition, setSelectedPosition] = useState<any>('');
     const [selectedVariable, setSelectedVariable] = useState<any>('');
@@ -73,6 +71,7 @@ const ComponentsAppsCreateNewTemplate = () => {
     const [customY, setCustomY] = useState<any>(null);
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
     const [loading, setLoading] = useState(false);
+    const [isCustomDimensions, setIsCustomDimensions] = useState(false);
 
     // Effect to set the canvas context and initialize background
     useEffect(() => {
@@ -134,31 +133,6 @@ const ComponentsAppsCreateNewTemplate = () => {
         };
 
         fetchTemplateImages();
-    }, []);
-
-    //FETCH ALL TEMPLATES
-    useEffect(() => {
-        const fetchAllTemplates = async () => {
-            try {
-                const response = await fetch(apis.getAllTemplateFormat, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
-                    },
-                });
-                const data = await response.json();
-                if (!response.ok) {
-                    showMessage(data.message, 'error');
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                setAllTemplates(data);
-            } catch (error) {
-                console.error('Error fetching contacts:', error);
-            }
-        };
-
-        fetchAllTemplates();
     }, []);
 
     //FETCH ALL VARIABLES
@@ -267,8 +241,10 @@ const ComponentsAppsCreateNewTemplate = () => {
     const drawCanvas = (ctx: any, canvas: any) => {
         if (!ctx || !canvas) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
         const gridSize = 20;
         drawGrid(ctx, canvas.width, canvas.height, gridSize);
+
         layers.forEach((layer: any) => {
             if (layer.type === 'image') {
                 ctx.drawImage(layer.content, layer.x, layer.y, layer.width, layer.height);
@@ -287,90 +263,63 @@ const ComponentsAppsCreateNewTemplate = () => {
 
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = layer.content;
-                const textElements = tempDiv.querySelectorAll('p, span, em, strong, u');
-                const extractTextContent = (element: any) => {
-                    if (element.children.length === 0) {
-                        return element.innerText || element.textContent;
-                    }
-                    return '';
-                };
+
+                const paragraphs = tempDiv.querySelectorAll('p');
                 let currentY = layer.y;
-                textElements.forEach((element) => {
-                    let textElement = element as HTMLElement;
-                    const text = extractTextContent(textElement);
-                    if (!text.trim()) return;
+
+                paragraphs.forEach((paragraph) => {
+                    const spanContent = paragraph.querySelectorAll('span, em, strong, u');
+                    let text = paragraph.innerText || paragraph.textContent || '';
+
                     let fontSize = '24px';
                     let fontFamily = 'Times New Roman';
                     let fontWeight = 'normal';
                     let fontStyle = 'normal';
                     let textDecoration = 'none';
                     let fillColor = 'black';
-                    let isDrawn = 'yes';
-                    let layerName = text;
 
-                    textElement.classList.forEach((cls: string) => {
-                        if (cls in quillClassMapping) {
-                            if (cls.startsWith('ql-font')) {
-                                fontFamily = quillClassMapping[cls];
+                    spanContent.forEach((element: any) => {
+                        element.classList.forEach((cls: string) => {
+                            if (cls in quillClassMapping) {
+                                if (cls.startsWith('ql-font')) fontFamily = quillClassMapping[cls];
+                                if (cls.startsWith('ql-size')) fontSize = quillClassMapping[cls];
                             }
-                            if (cls.startsWith('ql-size')) {
-                                fontSize = quillClassMapping[cls];
-                            }
+                        });
+
+                        const style = element.getAttribute('style');
+                        if (style) {
+                            const colorMatch = style.match(/color:\s*([^;]+);?/i);
+                            if (colorMatch) fillColor = colorMatch[1];
+                            if (style.includes('font-weight: bold')) fontWeight = 'bold';
+                            if (style.includes('font-style: italic')) fontStyle = 'italic';
+                            if (style.includes('text-decoration: underline')) textDecoration = 'underline';
                         }
+
+                        if (element.tagName === 'STRONG') fontWeight = 'bold';
+                        if (element.tagName === 'EM') fontStyle = 'italic';
+                        if (element.tagName === 'U') textDecoration = 'underline';
                     });
 
-                    const style = textElement.getAttribute('style');
-                    if (style) {
-                        const colorMatch = style.match(/color:\s*([^;]+);?/i);
-                        if (colorMatch) {
-                            fillColor = colorMatch[1];
-                        }
-                    }
-                    if (textElement.tagName === 'STRONG' || textElement.style?.fontWeight === 'bold') {
-                        fontWeight = 'bold';
-                    }
-                    if (textElement.tagName === 'EM' || textElement.style?.fontStyle === 'italic') {
-                        fontStyle = 'italic';
-                    }
-                    if (textElement.tagName === 'U' || textElement.style?.textDecoration === 'underline') {
-                        textDecoration = 'underline';
-                    }
+                    ctx.font = `${fontStyle} ${fontWeight} ${fontSize} ${fontFamily}`;
+                    ctx.fillStyle = fillColor;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'center';
+
+                    const textX = layer.x;
+                    const textY = currentY;
+                    ctx.fillText(text, textX, textY);
                     if (textDecoration === 'underline') {
+                        const textWidth = ctx.measureText(text).width;
+                        const underlineY = textY + parseFloat(fontSize) * 0.1;
                         ctx.beginPath();
-                        ctx.moveTo(layer.x, currentY + parseFloat(fontSize));
-                        ctx.lineTo(layer.x + ctx.measureText(text).width, currentY + parseFloat(fontSize));
+                        ctx.moveTo(textX - (textWidth / 2), underlineY);
+                        ctx.lineTo(textX + (textWidth / 2), underlineY);
                         ctx.strokeStyle = fillColor;
                         ctx.lineWidth = 1;
                         ctx.stroke();
                     }
-                    ctx.font = `${fontWeight} ${fontStyle} ${fontSize} ${fontFamily}`;
-                    ctx.fillStyle = fillColor;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'center';
-                    ctx.fillText(text, layer.x, currentY);
-                    currentY += parseFloat(fontSize);
-
-                    if (layer.isDrawn !== 'yes') {
-                        setLayers((prevLayers: any) =>
-                            prevLayers.map((prevLayer: any) =>
-                                prevLayer.id === layer.id
-                                    ? {
-                                        ...prevLayer,
-                                        fontWeight,
-                                        fontStyle,
-                                        fontSize,
-                                        fontFamily,
-                                        textDecoration,
-                                        fillColor,
-                                        isDrawn,
-                                        layerName
-                                    }
-                                    : prevLayer
-                            )
-                        );
-                    }
                 });
-            } if (layer.type === 'rect') {
+            } else if (layer.type === 'rect') {
                 ctx.fillStyle = layer.fillColor;
                 ctx.fillRect(layer.x, layer.y, layer.width, layer.height);
             }
@@ -442,23 +391,23 @@ const ComponentsAppsCreateNewTemplate = () => {
                 y = height - 20;
                 break;
 
-            // case `Bottom Right (x${width - 140}-y${height - 50})`:
-            //     x = width - 140;
+            // case `Bottom Right (x${width - 160}-y${height - 50})`:
+            //     x = width - 160;
             //     y = height - 50;
             //     break;
 
-            case `Bottom-Right-Up (x${width - 140}-y${height - 80})`:
-                x = width - 140;
+            case `Bottom-Right-Up (x${width - 160}-y${height - 80})`:
+                x = width - 160;
                 y = height - 80;
                 break;
 
-            case `Bottom Right (x${width - 140}-y${height - 50})`:
-                x = width - 140;
+            case `Bottom Right (x${width - 160}-y${height - 50})`:
+                x = width - 160;
                 y = height - 50;
                 break;
 
-            case `Bottom-Right-Down (x${width - 140}-y${height - 20})`:
-                x = width - 140;
+            case `Bottom-Right-Down (x${width - 160}-y${height - 20})`:
+                x = width - 160;
                 y = height - 20;
                 break;
 
@@ -472,12 +421,12 @@ const ComponentsAppsCreateNewTemplate = () => {
     const addTextLayer = () => {
         if (editorText) {
             const { x, y } = calculatePosition(selectedPosition);
-
             setLayers((prev: any) => [
                 ...prev,
                 {
                     id: uuidv4(),
                     type: 'text',
+                    layerName: selectedVariable,
                     content: editorText,
                     x: customX !== null ? customX : x,
                     y: customY !== null ? customY : y,
@@ -485,6 +434,8 @@ const ComponentsAppsCreateNewTemplate = () => {
                 }
             ]);
         }
+        setEditorText('');
+        setSelectedVariable('');
     };
 
     const toggleDropdown = (dropdownName: any) => {
@@ -494,22 +445,20 @@ const ComponentsAppsCreateNewTemplate = () => {
     const handleHeightChange = (e: any) => {
         const value = e.target.value;
         setHeight(parseInt(value, 10));
+        setIsCustomDimensions(true);
     };
 
     const handleWidthChange = (e: any) => {
         const value = e.target.value;
         setWidth(parseInt(value, 10));
-    };
-
-    const handleBackgroundColorChange = (e: any) => {
-        const value = e.target.value;
-        setBackgroundColor(value);
+        setIsCustomDimensions(true);
     };
 
     const handlePresetChange = (presetWidth: any, presetHeight: any) => {
         setWidth(presetWidth);
         setHeight(presetHeight);
         setDimensions({ width: presetWidth, height: presetHeight });
+        setIsCustomDimensions(false);
     };
 
     const handleUploadClick = () => {
@@ -549,54 +498,24 @@ const ComponentsAppsCreateNewTemplate = () => {
         }
     };
 
-    const handleFormatChange = async (event: any) => {
-        const file = event.target?.files[0];
-        if (file) {
-            setIsUploading(true);
-
-            try {
-                const formData = new FormData();
-                formData.append('templateFormat', file);
-                const response = await fetch(apis.templateFormatUpload, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                    },
-                    body: formData,
-                });
-                const result = await response.json();
-                if (response.ok) {
-                    setAllTemplates((prevImages: any) => [...prevImages, result.data]);
-                    showMessage(result.message);
-                } else {
-                    showMessage(result.message, 'error');
-                    alert('Template Format upload failed.');
-                }
-            } catch (error) {
-                showMessage('An error occurred while uploading the image.', 'error');
-            }
-            setIsUploading(false);
-        }
-    };
-
     const handleDragStart = (e: any, item: any) => {
         e.dataTransfer.setData('text/plain', item?.templateImages?.url);
     };
 
     const handleDrop = (e: any) => {
         e.preventDefault();
-
         const data = e.dataTransfer.getData('text/plain');
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         const rect = canvas.getBoundingClientRect();
+
+        if (!canvas || !rect) return;
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
 
         if (data.startsWith('<svg')) {
             const svgBlob = new Blob([data], { type: 'image/svg+xml' });
             const url = URL.createObjectURL(svgBlob);
-
             const img = new Image();
             img.onload = () => {
                 ctx.drawImage(img, x, y);
@@ -606,6 +525,7 @@ const ComponentsAppsCreateNewTemplate = () => {
             const newLayer = {
                 id: uuidv4(),
                 type: 'svg',
+                layerName: 'svg',
                 content: img,
                 x: x,
                 y: y,
@@ -649,6 +569,7 @@ const ComponentsAppsCreateNewTemplate = () => {
                 const newLayer = {
                     id: uuidv4(),
                     type: 'image',
+                    layerName: 'image',
                     content: img,
                     x: centeredX,
                     y: centeredY,
@@ -702,43 +623,6 @@ const ComponentsAppsCreateNewTemplate = () => {
         }
     };
 
-    const handleSaveAndSend = async () => {
-        if (!templateName) {
-            alert('Template name is required to proceed.');
-            return;
-        }
-
-        const svgData = generateSVGFromCanvas();
-
-        const blob = new Blob([svgData], { type: 'image/svg+xml' });
-        const formData = new FormData();
-        formData.append('name', templateName);
-        formData.append('template', blob, `${templateName}.svg`);
-        formData.append('height', height);
-        formData.append('width', width);
-
-        try {
-            const response = await fetch(apis.createTemplate, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: formData,
-            });
-
-            const newTemplate = await response.json();
-            if (response.ok) {
-                setAllTemplates((prevTemplates: any) => [...prevTemplates, newTemplate.data]);
-                showMessage('Template uploaded successfully!');
-            } else {
-                showMessage(newTemplate.message, 'error');
-            }
-            closeDownloadModal();
-        } catch (error) {
-            showMessage('Error uploading template', 'error');
-        }
-    };
-
     const handleReferenceTemplate = async () => {
         setLoading(true);
 
@@ -773,21 +657,20 @@ const ComponentsAppsCreateNewTemplate = () => {
             const newTemplate = await response.json();
             if (response.ok) {
                 showMessage(newTemplate.message);
-                closeDownloadModal();
+                closeRefModal();
                 router.push('/apps/create-template');
             } else {
+                closeRefModal();
                 showMessage(newTemplate.message, 'error');
-                closeDownloadModal();
             }
         } catch (error) {
             showMessage('Error uploading template', 'error');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
-    const openDownloadModal = () => setIsDownloadModalOpen(true);
     const openRefModal = () => setIsRefModalOpen(true);
-    const closeDownloadModal = () => setIsDownloadModalOpen(false);
     const closeRefModal = () => setIsRefModalOpen(false);
 
     const handleDeleteLayer = (layerToDelete: any) => {
@@ -849,6 +732,15 @@ const ComponentsAppsCreateNewTemplate = () => {
         ]);
     };
 
+    const handleShapeDragStart = (e: any, shape: string) => {
+        if (!e.dataTransfer) {
+            console.error('DataTransfer is null');
+            return;
+        }
+
+        e.dataTransfer.setData('text/plain', shape);
+    };
+
     return (
         <div className="main-container">
             <div className="relative flex h-full gap-3 sm:h-[calc(100vh_-_150px)]">
@@ -857,12 +749,11 @@ const ComponentsAppsCreateNewTemplate = () => {
                 <div className="panel mb-3 w-[260px] ">
                     <div className="grid grid-cols-1 gap-4">
 
-                        {/* ALL 6 DROPDOWNS */}
                         {(activeDropdown === '' || activeDropdown === 'canvas') && (
                             <div className="relative">
                                 <button
                                     type="button"
-                                    className="btn dropdown-toggle w-full bg-gray-100 hover:bg-gray-200 rounded-md border border-gray-300 text-gray-800 font-medium py-2 px-4 flex justify-between items-center"
+                                    className="btn w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transform hover:scale-105 transition-all flex justify-between items-center"
                                     onClick={() => toggleDropdown('canvas')}
                                 >
                                     Canvas Settings
@@ -946,7 +837,7 @@ const ComponentsAppsCreateNewTemplate = () => {
                                                 </Tab.List>
                                             </Tab.Group>
                                             <div className="mt-4 font-medium">
-                                                Selected dimensions: {dimensions.width} x {dimensions.height} px
+                                                Selected dimensions: {dimensions.width ? dimensions.width : width} x {dimensions.height ? dimensions.height : height} px
                                             </div>
                                         </div>
                                     </div>
@@ -958,7 +849,7 @@ const ComponentsAppsCreateNewTemplate = () => {
                             <div className="relative">
                                 <button
                                     type="button"
-                                    className={`btn dropdown-toggle w-full bg-gray-100 hover:bg-gray-200 rounded-md border border-gray-300 text-gray-800 font-medium py-2 px-4 flex justify-between items-center`}
+                                    className="btn w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transform hover:scale-105 transition-all flex justify-between items-center"
                                     onClick={() => toggleDropdown('upload')}
                                 >
                                     Upload Image
@@ -968,7 +859,7 @@ const ComponentsAppsCreateNewTemplate = () => {
                                 </button>
 
                                 <AnimateHeight duration={300} height={activeDropdown === 'upload' ? 'auto' : 0}>
-                                    <div className="p-4">
+                                    <div className="p-2">
                                         <div className="flex items-center justify-between gap-2 w-full">
                                             <div>
                                                 <input
@@ -984,7 +875,7 @@ const ComponentsAppsCreateNewTemplate = () => {
                                                     onClick={handleUploadClick} // Trigger file input click
                                                 >
                                                     <IconSend className="shrink-0 ltr:mr-2 rtl:ml-2" />
-                                                    {isUploading ? 'Uploading...' : 'Upload Image'}
+                                                    {isUploading ? 'Uploading...' : 'Upload'}
                                                 </button>
                                             </div>
                                             <button
@@ -1006,16 +897,6 @@ const ComponentsAppsCreateNewTemplate = () => {
                                                                     } flex-1 py-2 text-center text-gray-700 hover:text-secondary transition-colors`}
                                                             >
                                                                 Images
-                                                            </button>
-                                                        )}
-                                                    </Tab>
-                                                    <Tab as={Fragment}>
-                                                        {({ selected }) => (
-                                                            <button
-                                                                className={`${selected ? 'border-b-2 border-secondary text-secondary' : ''
-                                                                    } flex-1 py-2 text-center text-gray-700 hover:text-secondary transition-colors`}
-                                                            >
-                                                                Videos
                                                             </button>
                                                         )}
                                                     </Tab>
@@ -1041,24 +922,6 @@ const ComponentsAppsCreateNewTemplate = () => {
                                                             )}
                                                         </div>
                                                     </Tab.Panel>
-
-                                                    <Tab.Panel>
-                                                        <div className="grid grid-cols-2 gap-4 max-h-[300px] overflow-y-auto">
-                                                            {Array.isArray(templateVideos) && templateVideos.length > 0 ? (
-                                                                templateVideos?.map((item: any, index: any) => (
-                                                                    <div key={item._id} className="border rounded overflow-hidden">
-                                                                        <video controls className="w-full h-20 object-cover rounded">
-                                                                            <source src={item.templateVideos.url}
-                                                                                type="video/mp4" />
-                                                                            Your browser does not support the video tag.
-                                                                        </video>
-                                                                    </div>
-                                                                ))
-                                                            ) : (
-                                                                <p className="text-gray-500 text-center justify-center items-center">No Videos available</p> // Message for no images
-                                                            )}
-                                                        </div>
-                                                    </Tab.Panel>
                                                 </Tab.Panels>
                                             </Tab.Group>
                                         </div>
@@ -1067,11 +930,63 @@ const ComponentsAppsCreateNewTemplate = () => {
                             </div>
                         )}
 
+                        {/* {(activeDropdown === '' || activeDropdown === 'shapes') && (
+                            <div className="relative">
+                                <button
+                                    type="button"
+                                    className="btn w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transform hover:scale-105 transition-all flex justify-between items-center"
+                                    onClick={() => toggleDropdown('shapes')}
+                                >
+                                    Shapes
+                                    <span
+                                        className={`inline-block transition-transform duration-300 ${activeDropdown === 'shapes' ? 'rotate-180' : ''
+                                            }`}
+                                    >
+                                        <IconCaretDown />
+                                    </span>
+                                </button>
+
+                                <AnimateHeight
+                                    duration={300}
+                                    height={activeDropdown === 'shapes' ? 'auto' : 0}
+                                >
+                                    <div className="p-2">
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {['Rectangle', 'Circle', 'Triangle'].map((shape, index) => (
+                                                <div
+                                                    key={index}
+                                                    className="border rounded p-2 text-center cursor-pointer hover:bg-gray-200 flex justify-center items-center"
+                                                    draggable
+                                                    onDragStart={(e: React.DragEvent) => handleShapeDragStart(e, shape)}
+                                                >
+                                                    {shape === 'Rectangle' && (
+                                                        <svg width="50" height="30" className="fill-blue-500">
+                                                            <rect width="50" height="30" />
+                                                        </svg>
+                                                    )}
+                                                    {shape === 'Circle' && (
+                                                        <svg width="40" height="40" className="fill-red-500">
+                                                            <circle cx="20" cy="20" r="20" />
+                                                        </svg>
+                                                    )}
+                                                    {shape === 'Triangle' && (
+                                                        <svg width="50" height="40" viewBox="0 0 50 50" className="fill-green-500">
+                                                            <polygon points="25,0 50,50 0,50" />
+                                                        </svg>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </AnimateHeight>
+                            </div>
+                        )} */}
+
                         {(activeDropdown === '' || activeDropdown === 'typography') && (
                             <div className="relative">
                                 <button
                                     type="button"
-                                    className={`btn dropdown-toggle w-full bg-gray-100 hover:bg-gray-200 rounded-md border border-gray-300 text-gray-800 font-medium py-2 px-4 flex justify-between items-center`}
+                                    className="btn w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transform hover:scale-105 transition-all flex justify-between items-center"
                                     onClick={() => toggleDropdown('typography')}
                                 >
                                     Typography
@@ -1119,7 +1034,6 @@ const ComponentsAppsCreateNewTemplate = () => {
                                                 value={editorText}
                                             />
                                             <br />
-
                                             <select
                                                 className="form-select"
                                                 onChange={handlePositionChange}
@@ -1183,12 +1097,8 @@ const ComponentsAppsCreateNewTemplate = () => {
                 {/* Middle Panel - Main Content */}
                 <div className="panel flex-1">
                     {/* Button section */}
-                    <div className="flex flex-wrap mb-4 gap-2">
-                        <button type="button" className="btn btn-outline-primary" onClick={handleClear}>
-                            <IconTrashLines className="shrink-0 ltr:mr-2 rtl:ml-2" />
-                            Clear
-                        </button>
-                        {/* <button type="button" className="btn btn-outline-warning" onClick={handleUndo}>
+                    {/* <div className="flex flex-wrap mb-4 gap-2"> */}
+                    {/* <button type="button" className="btn btn-outline-warning" onClick={handleUndo}>
                             <IconArrowBackward className="shrink-0 ltr:mr-2 rtl:ml-2" />
                             Undo
                         </button>
@@ -1196,12 +1106,12 @@ const ComponentsAppsCreateNewTemplate = () => {
                             <IconArrowForward className="shrink-0 ltr:mr-2 rtl:ml-2" />
                             Redo
                         </button> */}
-                    </div>
+                    {/* </div> */}
 
                     {/* Canvas section */}
                     <div className="flex items-center justify-center w-full h-auto">
                         <div
-                            className="relative max-w-full"
+                            className="relative flex items-center justify-center"
                             style={{
                                 width: `${(450 / Math.max(width, height)) * width}px`,
                                 height: `${(450 / Math.max(width, height)) * height}px`,
@@ -1233,12 +1143,17 @@ const ComponentsAppsCreateNewTemplate = () => {
                             onClick={openRefModal}
                         >
                             <IconSave className="shrink-0" />
-                            Save For Ref. Template Format
+                            Save
                         </button>
                     </div>
-                    <div className="flex items-center mb-3">
+                    <button type="button" className="btn btn-outline-primary" onClick={handleClear}>
+                        <IconTrashLines className="shrink-0 ltr:mr-2 rtl:ml-2" />
+                        Clear
+                    </button>
+                    <br />
+                    <span className="flex items-center mb-3">
                         Layers
-                    </div>
+                    </span>
 
                     {/* Display the list of layers */}
                     <div className="bg-white p-2 rounded-md shadow-md">
@@ -1282,7 +1197,7 @@ const ComponentsAppsCreateNewTemplate = () => {
                             <div className="flex justify-end gap-2">
                                 <button
                                     type="button"
-                                    className="btn bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+                                    className="btn bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded"
                                     onClick={closeRefModal}
                                 >
                                     Cancel
