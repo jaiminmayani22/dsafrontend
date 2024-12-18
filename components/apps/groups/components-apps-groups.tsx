@@ -80,30 +80,9 @@ const ComponentsAppsGroups = () => {
         updatedAt: '',
     });
 
-    const [defaultParamsMembers] = useState<any>({
-        _id: null,
-        name: '',
-        company_name: '',
-        mobile_number: '',
-        whatsapp_number: '',
-        email: '',
-        website: '',
-        city: '',
-        profile_picture: '',
-        company_profile_picture: '',
-        remarks: '',
-        instagramID: '',
-        facebookID: '',
-        groupID: '',
-        groupName: '',
-        isFavorite: '',
-        addedBy: '',
-        createdAt: '',
-        updatedAt: '',
-    });
-
     const [params, setParams] = useState<any>(JSON.parse(JSON.stringify(defaultParams)));
     const [members, setMembers] = useState<any>([]);
+    const [paginatedDetails, setPaginatedDetails] = useState([]);
 
     const changeValue = (e: any) => {
         const { value, id } = e.target;
@@ -132,84 +111,99 @@ const ComponentsAppsGroups = () => {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`,
+                        Authorization: `Bearer ${token}`,
                     },
                     body: JSON.stringify(params),
                 });
                 const data = await response.json();
 
-                if (response.status === 401 && data.message === "Token expired! Please login again") {
+                if (response.status === 401 && data.message === 'Token expired! Please login again') {
                     showMessage(data.message, 'error');
                     router.push('/auth/boxed-signin');
-                    throw new Error('Token expired');
+                    return;
                 }
+
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
+
                 setGroups(data);
-                setFilteredItems(data);
             } catch (error) {
                 console.error('Error fetching groups:', error);
             }
         };
 
-        fetchGroups();
-    }, []);
-
-    //get all  members
-    useEffect(() => {
         const fetchMembers = async () => {
-            if (selectedGroup !== null) {
-                try {
-                    const response = await fetch(apis.getMembersForGroup, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`,
-                        },
-                        body: JSON.stringify({ groupId: selectedGroup }),
-                    });
-                    if (response.ok) {
-                        const memberArr = await response.json();
-                        setMembers(memberArr);
-                    } else {
-                        showMessage('Members not Found', 'error');
-                    }
-                } catch (error) {
-                    console.error('Error fetching groups:', error);
+            try {
+                const response = await fetch(apis.getMembersForGroup, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ groupId: selectedGroup }),
+                });
+
+                if (response.ok) {
+                    const memberArr = await response.json();
+                    setMembers(memberArr);
+                } else {
+                    showMessage('Members not Found', 'error');
                 }
+            } catch (error) {
+                console.error('Error fetching members:', error);
             }
         };
-        fetchMembers();
-    }, [selectedGroup]);
+
+        if (selectedGroup === null) {
+            fetchGroups();
+        } else {
+            fetchMembers();
+        }
+    }, [selectedGroup, params, token, apis]);
 
     useEffect(() => {
-        if (Array.isArray(groupList)) {
-            setFilteredItems(groupList?.filter((item) =>
-                item.name?.toLowerCase().includes(search.toLowerCase())
-            ));
-        }
-    }, [search, groupList]);
+        const updatePaginatedDetails = () => {
+            let updatedItems = selectedGroup === null ? groupList : members;
+
+            if (searchQuery.trim() !== '') {
+                updatedItems = updatedItems.filter((item: any) =>
+                    item.name?.toLowerCase().includes(searchQuery.toLowerCase())
+                );
+            }
+
+            if (sortStatus.columnAccessor) {
+                updatedItems = sortBy(updatedItems, sortStatus.columnAccessor);
+                if (sortStatus.direction === 'desc') {
+                    updatedItems = updatedItems.reverse();
+                }
+            }
+
+            setFilteredItems(updatedItems);
+
+            const from = (page - 1) * pageSize;
+            const to = from + pageSize;
+            const paginated = updatedItems.slice(from, to);
+
+            setPaginatedDetails(paginated);
+        };
+
+        updatePaginatedDetails();
+    }, [searchQuery, selectedGroup, groupList, members, sortStatus, page, pageSize]);
 
     useEffect(() => {
         setPage(1);
     }, [pageSize]);
 
     useEffect(() => {
-        const from = (page - 1) * pageSize;
-        const to = from + pageSize;
-        setFilteredItems([...groupList.slice(from, to)]);
-    }, [page, pageSize, groupList]);
-
-    useEffect(() => {
-        const data2 = sortBy(filteredItems, sortStatus.columnAccessor);
-        setFilteredItems(sortStatus.direction === 'desc' ? data2.reverse() : data2);
         setPage(1);
-    }, [sortStatus]);
+    }, [searchQuery]);
 
     useEffect(() => {
-        setCurrentPage(1);
-    }, [searchQuery]);
+        if (selectedGroup === null) {
+            setPage(1);
+        }
+    }, [selectedGroup]);
 
     const saveGroup = async () => {
         setLoading(true);
@@ -600,7 +594,12 @@ const ComponentsAppsGroups = () => {
         return emailRegex.test(email);
     };
 
-    const validateMobileNumber = (number: string): boolean => {
+    const validateMobileNumber = (number?: string): boolean => {
+        if (!number || typeof number !== "string") {
+            showMessage(`Invalid number: ${number}`, 'error');
+            return false;
+        }
+
         const mobileRegexWithCountryCode = /^\+91\d{10}$/;
         const mobileRegexWithoutCountryCode = /^\d{10}$/;
 
@@ -610,6 +609,7 @@ const ComponentsAppsGroups = () => {
             return mobileRegexWithoutCountryCode.test(number);
         }
     };
+
 
     const saveUser = async (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
@@ -640,7 +640,7 @@ const ComponentsAppsGroups = () => {
             showMessage('Whatsapp number must be exactly 10 digits excluding +91', 'error');
         }
 
-        if ((!validateMobileNumber(params.mobile_number)) && (params.mobile_number !== "")) {
+        if ((params.mobile_number && !validateMobileNumber(params.mobile_number))) {
             newErrors.mobile_number = 'Mobile number must be exactly 10 digits excluding +91';
             showMessage('Mobile number must be exactly 10 digits excluding +91', 'error');
         }
@@ -1068,6 +1068,10 @@ const ComponentsAppsGroups = () => {
         isFavorite: string;
     };
 
+    // const startIndex = (page - 1) * pageSize;
+    // const endIndex = startIndex + pageSize;
+    // const paginatedDetails = filteredItems.slice(startIndex, endIndex);
+
     return (
         <div>
             <div>
@@ -1079,6 +1083,7 @@ const ComponentsAppsGroups = () => {
                                     type="button"
                                     className="btn p-0 bg-transparent border-0"
                                     onClick={() => {
+                                        setFilteredItems(null);
                                         setFilteredItems(groupList);
                                         setSelectedGroup(null);
                                     }}
@@ -1175,7 +1180,7 @@ const ComponentsAppsGroups = () => {
                 {!selectedGroup ? (
                     <DataTable
                         className="table-hover whitespace-nowrap"
-                        records={filteredItems}
+                        records={paginatedDetails}
                         columns={[
                             {
                                 accessor: 'name',
@@ -1235,7 +1240,7 @@ const ComponentsAppsGroups = () => {
                     <div className="datatables pagination-padding">
                         <DataTable<RecordType>
                             className="table-hover whitespace-nowrap"
-                            records={filteredItems}
+                            records={paginatedDetails}
                             columns={[
                                 {
                                     accessor: 'checkbox',
@@ -1377,10 +1382,15 @@ const ComponentsAppsGroups = () => {
                             recordsPerPage={pageSize}
                             page={page}
                             onPageChange={setPage}
-                            recordsPerPageOptions={[10, 20, 30]}
-                            onRecordsPerPageChange={setPageSize}
+                            recordsPerPageOptions={PAGE_SIZES}
+                            onRecordsPerPageChange={(size) => {
+                                setPageSize(size);
+                                setPage(1);
+                            }}
                             sortStatus={sortStatus}
-                            onSortStatusChange={setSortStatus}
+                            onSortStatusChange={(status) => {
+                                setSortStatus(status);
+                            }}
                             paginationText={({ from, to, totalRecords }) =>
                                 `Showing ${from} to ${to} of ${totalRecords} entries`
                             }

@@ -241,7 +241,7 @@ const ComponentsAppsContacts = () => {
             showMessage('Whatsapp number must be exactly 10 digits excluding +91', 'error');
         }
 
-        if ((!validateMobileNumber(params.mobile_number)) && (params.mobile_number !== "")) {
+        if ((params.mobile_number && !validateMobileNumber(params.mobile_number))) {
             newErrors.mobile_number = 'Mobile number must be exactly 10 digits excluding +91';
             showMessage('Mobile number must be exactly 10 digits excluding +91', 'error');
         }
