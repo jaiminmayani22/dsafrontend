@@ -389,6 +389,7 @@ const ComponentsAppsVariables = () => {
                                                         { value: "district", label: "District" },
                                                         { value: "address", label: "Address" },
                                                         { value: "website", label: "website" },
+                                                        { value: "profile", label: "Profile" },
                                                     ]}
                                                     value={
                                                         params?.name

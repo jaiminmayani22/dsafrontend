@@ -8,7 +8,7 @@ import Select, { MultiValue } from 'react-select';
 import { IRootState } from '@/store';
 import { Transition, Dialog } from '@headlessui/react';
 import { useSelector } from 'react-redux';
-import React, { Fragment, useEffect, useState } from 'react';
+import React, { Fragment, useEffect, useState, useRef } from 'react';
 import Swal from 'sweetalert2';
 import { useRouter } from 'next/navigation'
 
@@ -45,8 +45,9 @@ const ComponentsAppsContacts = () => {
     const [currentUser, setCurrentUser] = useState<Contact | undefined>(undefined);
     const [page, setPage] = useState(1); // Current page
     const [pageSize, setPageSize] = useState(PAGE_SIZES[0]); // Records per page
+    const [totalRecords, setTotalRecords] = useState(10);
     const [sortStatus, setSortStatus] = useState<DataTableSortStatus>({
-        columnAccessor: 'updatedAt',
+        columnAccessor: 'createdAt',
         direction: 'desc',
     });
     const [groupNames, setGroupNames] = useState<Group[]>([]);
@@ -57,6 +58,8 @@ const ComponentsAppsContacts = () => {
     const [isInvalidModalOpen, setIsInvalidModalOpen] = useState(false);
     const [errorMessages, setErrorMessages] = useState({ mobile: '', whatsapp: '' });
     const [loading, setLoading] = useState(false);
+    const [exploading, setexpLoading] = useState(false);
+    const [refreshLoading, setRefreshLoading] = useState(false);
     const [isCompanyLoading, setIsCompanyLoading] = useState(false);
 
     const [defaultParams] = useState({
@@ -121,6 +124,8 @@ const ComponentsAppsContacts = () => {
 
     const [contactList, setContacts] = useState<Contact[]>([]);
     const [filteredItems, setFilteredItems] = useState<any>([]);
+    const [filterFavorite, setFiltereFavorite] = useState<any>(false);
+    const [filterUnavailable, setFiltereUnavailable] = useState<any>(false);
     const [invalidEntries, setInvalidEntries] = useState<any[]>([]);
     const [search, setSearch] = useState<any>('');
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -135,47 +140,46 @@ const ComponentsAppsContacts = () => {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`,
                     },
-                    body: JSON.stringify(params),
+                    body: JSON.stringify({
+                        limit: pageSize,
+                        pageCount: page,
+                        search: search,
+                        sortingField: sortStatus.columnAccessor,
+                        sortingOrder: sortStatus.direction,
+                        filter: {
+                            isFavorite: filterFavorite === true ? 'yes' : undefined,
+                            isNumberOnWhatsapp: filterUnavailable === true ? 'no' : undefined,
+                        },
+                    }),
                 });
                 const data = await response.json();
 
                 if (response.status === 401 && data.message === "Token expired! Please login again") {
                     showMessage(data.message, 'error');
                     router.push('/auth/boxed-signin');
-                    throw new Error('Token expired');
+                    return;
                 }
 
                 if (!response.ok) {
                     showMessage(data.message, 'error');
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    return;
                 }
+                setTotalRecords(data.totalRecords);
                 setContacts(data.data);
                 setFilteredItems(data.data);
             } catch (error) {
-                console.error('Error fetching contacts:', error);
+                showMessage('Error fetching contacts', 'error');
             }
         };
 
         fetchContacts();
-    }, []);
+    }, [page, pageSize, sortStatus, search, filterFavorite, filterUnavailable]);
 
-    //search contacts
     useEffect(() => {
-        if (Array.isArray(contactList)) {
-            setFilteredItems(
-                contactList.filter((item) =>
-                    item.name?.toLowerCase().includes(search.toLowerCase()) ||
-                    item.email?.toLowerCase().includes(search.toLowerCase()) ||
-                    item.groupName?.toLowerCase().includes(search.toLowerCase()) ||
-                    item.city?.toLowerCase().includes(search.toLowerCase()) ||
-                    item.district?.toLowerCase().includes(search.toLowerCase()) ||
-                    item.address?.toLowerCase().includes(search.toLowerCase()) ||
-                    item.whatsapp_number?.includes(search) ||
-                    item.mobile_number?.includes(search)
-                )
-            );
+        if (search) {
+            setPage(1);
         }
-    }, [search, contactList]);
+    }, [search]);
 
     //fetch group names
     useEffect(() => {
@@ -191,11 +195,11 @@ const ComponentsAppsContacts = () => {
                 const data = await response.json();
                 if (!response.ok) {
                     showMessage(data.message, 'error');
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    return;
                 }
                 setGroupNames(data);
             } catch (error) {
-                console.error('Error fetching group names:', error);
+                showMessage('Error fetching group names', 'error');
             }
         };
 
@@ -211,7 +215,7 @@ const ComponentsAppsContacts = () => {
     useEffect(() => {
         const data2 = sortBy(filteredItems, sortStatus.columnAccessor);
         setFilteredItems(sortStatus.direction === 'desc' ? data2.reverse() : data2);
-        setPage(1);
+        // setPage(1);
     }, [sortStatus]);
 
     const saveUser = async (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -267,8 +271,8 @@ const ComponentsAppsContacts = () => {
                                 return prevItems.map((item: any) => {
                                     if (item._id === params._id) {
                                         return {
-                                            ...data.data,
                                             ...item,
+                                            ...data.data,
                                         };
                                     }
                                     return item;
@@ -298,7 +302,7 @@ const ComponentsAppsContacts = () => {
                     const data = await response.json();
 
                     if (response.ok) {
-                        filteredItems.splice(0, 0, data.data);
+                        setFilteredItems((prevItems: any) => [data.data, ...prevItems]);
                         showMessage('User has been added successfully.');
                     } else {
                         showMessage(`Failed to add user: ${data.message}`, 'error');
@@ -367,29 +371,38 @@ const ComponentsAppsContacts = () => {
     };
 
     const exportContacts = async () => {
-        const response = await fetch(apis.exportContacts, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            },
-        });
+        try {
+            setexpLoading(true);
 
-        if (!response.ok) {
-            throw new Error('Failed to export contacts');
-        }
+            const response = await fetch(apis.exportContacts, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
 
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(new Blob([blob]));
+            if (!response.ok) {
+                throw new Error('Failed to export contacts');
+            }
 
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'clients.csv');
-        document.body.appendChild(link);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(new Blob([blob]));
 
-        link.click();
-        if (link.parentNode) {
-            link.parentNode.removeChild(link);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'clients.csv');
+            document.body.appendChild(link);
+
+            link.click();
+            if (link.parentNode) {
+                link.parentNode.removeChild(link);
+            }
+        } catch (error) {
+            console.error(error);
+            showMessage("Please try again", 'error')
+        } finally {
+            setexpLoading(false);
         }
     };
 
@@ -484,18 +497,24 @@ const ComponentsAppsContacts = () => {
 
             if (!response.ok) {
                 showMessage('Failed to re-import invalid entries', 'error');
-                throw new Error('Failed to re-import invalid entries');
+                return;
             }
 
             const result = await response.json();
 
-            const newInvalidEntries = result.changes?.filter((item: any) => item.action === 'invalid');
-            if (newInvalidEntries?.length > 0) {
+            const newInvalidEntries = result.changes?.filter((item: any) => item.action === 'invalid') || [];
+            if (newInvalidEntries.length > 0) {
                 setInvalidEntries(newInvalidEntries);
                 setIsInvalidModalOpen(true);
             } else {
                 if (result.data?.length > 0) {
-                    setFilteredItems([...filteredItems, ...result.data]);
+                    const uniqueItems = [
+                        ...filteredItems,
+                        ...result.data.filter(
+                            (newItem: any) => !filteredItems.some((existingItem: any) => existingItem._id === newItem._id)
+                        ),
+                    ];
+                    setFilteredItems(uniqueItems);
                 }
                 showMessage(result.message);
                 setIsInvalidModalOpen(false);
@@ -538,6 +557,7 @@ const ComponentsAppsContacts = () => {
                     const result = await response.json();
                     if (!response.ok) {
                         showMessage(result.message);
+                        return;
                     } else {
                         setFilteredItems((prevItems: any) => {
                             const updatedItemsMap = new Map(
@@ -761,6 +781,7 @@ const ComponentsAppsContacts = () => {
     };
 
     const refreshContacts = async () => {
+        setRefreshLoading(true);
         try {
             const response = await fetch(apis.getAllClient, {
                 method: 'POST',
@@ -772,24 +793,21 @@ const ComponentsAppsContacts = () => {
             const data = await response.json();
 
             if (response.ok) {
-                setFilteredItems([...data.data]);
+                setTotalRecords(data.totalRecords);
                 setSearch('');
             } else {
                 console.error('Failed to fetch client count:', data.message);
             }
         } catch (error) {
             console.error('Error fetching client count:', error);
+        } finally {
+            setRefreshLoading(false);
         }
     };
 
     const toggleFavorite = async (_id: string) => {
-        const filteredItems = contactList.map((contact) =>
-            contact._id === _id ? { ...contact, isFavorite: contact.isFavorite === "yes" ? "no" : "yes" } : contact
-        );
-        setContacts(filteredItems);
-        const updatedContact = filteredItems.find(contact => contact._id === _id);
-        if (!updatedContact) {
-            console.error("Contact not found");
+        if (!_id) {
+            showMessage("Please try again",'error');
             return;
         }
         try {
@@ -799,11 +817,24 @@ const ComponentsAppsContacts = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`,
                 },
-                body: JSON.stringify({ isFavorite: updatedContact?.isFavorite }),
+                body: JSON.stringify({ isFavorite: filteredItems.find((contact: any) => contact._id === _id)?.isFavorite === "yes" ? "no" : "yes" }),
             });
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
+
+            const data = await response.json();
+            setFilteredItems((prevItems: any) => {
+                return prevItems.map((item: any) => {
+                    if (item._id === _id) {
+                        return {
+                            ...item,
+                            ...data.data, // Ensure latest server response is merged
+                        };
+                    }
+                    return item;
+                });
+            });
         } catch (error) {
             console.error('Error updating contact:', error);
         }
@@ -835,12 +866,18 @@ const ComponentsAppsContacts = () => {
     };
 
     const viewFavouriteContacts = () => {
-        const favouriteContacts = contactList.filter(contact => contact.isFavorite === 'yes');
-        setFilteredItems(favouriteContacts);
+        setFiltereFavorite(true);
+        setFiltereUnavailable(false);
+    };
+
+    const viewUnavailableContacts = () => {
+        setFiltereUnavailable(true);
+        setFiltereFavorite(undefined);
     };
 
     const viewAll = () => {
-        setFilteredItems(contactList);
+        setFiltereFavorite(false);
+        setFiltereUnavailable(false);
     };
 
     const openModal = (imageUrl: string) => {
@@ -995,10 +1032,6 @@ const ComponentsAppsContacts = () => {
         }
     };
 
-    const startIndex = (page - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    const paginatedDetails = filteredItems.slice(startIndex, endIndex);
-
     type RecordType = {
         profile_picture?: { url: string };
         company_profile_picture?: { url: string };
@@ -1011,7 +1044,7 @@ const ComponentsAppsContacts = () => {
                 <div className="flex items-center gap-2 ml-auto">
                     {/* Displaying the count of filtered contacts */}
                     <span className="text-sm font-medium">
-                        Total {filteredItems.length} contacts
+                        Total {totalRecords} contacts
                     </span>
 
                     {/* Refresh Button */}
@@ -1019,8 +1052,11 @@ const ComponentsAppsContacts = () => {
                         type="button"
                         className="flex items-center text-gray-600 hover:text-gray-800 focus:outline-none"
                         onClick={() => refreshContacts()}
+                        disabled={refreshLoading}
                     >
-                        <IconRefresh className="ltr:mr-2 rtl:ml-2" />
+                        <IconRefresh
+                            className={`ltr:mr-2 rtl:ml-2 ${refreshLoading ? 'animate-spin' : ''}`}
+                        />
                     </button>
                 </div>
             </div>
@@ -1034,10 +1070,22 @@ const ComponentsAppsContacts = () => {
                             Add Contact
                         </button>
                     </div>
-                    <button type="button" className="btn btn-warning gap-2" onClick={exportContacts}>
-                        <IconSend />
-                        Export Contacts
+                    <button
+                        type="button"
+                        className="btn btn-warning gap-2"
+                        onClick={exportContacts}
+                        disabled={exploading}
+                    >
+                        {exploading ? (
+                            <span>Exporting...</span>
+                        ) : (
+                            <>
+                                <IconSend />
+                                Export Contacts
+                            </>
+                        )}
                     </button>
+
                     <div className="dropdown">
                         <Dropdown
                             placement={`${isRtl ? 'bottom-start' : 'bottom-end'}`}
@@ -1090,21 +1138,52 @@ const ComponentsAppsContacts = () => {
                             <IconSearch className="mx-auto" />
                         </button>
                     </div>
-                    <div className="dropdown">
+                    <div className="relative">
                         <Dropdown
                             placement={`${isRtl ? 'bottom-start' : 'bottom-end'}`}
-                            btnClassName="btn p-0 rounded-none border-0 shadow-none dropdown-toggle"
-                            button={<IconHorizontalDots className="h-6 w-6 opacity-70" />}
+                            btnClassName="btn p-0 rounded-md border-0 shadow-none dropdown-toggle"
+                            button={
+                                <button className="flex items-center justify-center w-10 h-10 rounded-md hover:bg-gray-100 transition">
+                                    <IconHorizontalDots className="h-6 w-6 opacity-70" />
+                                </button>
+                            }
                         >
-                            <ul className="!min-w-[170px]">
+                            <ul className="bg-white border border-gray-200 shadow-lg rounded-lg overflow-hidden w-56">
                                 <li>
-                                    <button type="button" onClick={viewFavouriteContacts}>Favourites</button>
+                                    <button
+                                        type="button"
+                                        onClick={viewFavouriteContacts}
+                                        className="block w-full text-left px-4 py-2 hover:bg-gray-100 transition whitespace-nowrap"
+                                    >
+                                        ⭐ Favourites
+                                    </button>
                                 </li>
                                 <li>
-                                    <button type="button" onClick={viewAll}>View All</button>
+                                    <button
+                                        type="button"
+                                        onClick={viewUnavailableContacts}
+                                        className="block w-full text-left px-4 py-2 hover:bg-gray-100 transition whitespace-nowrap"
+                                    >
+                                        🚫 Unavailable on WhatsApp
+                                    </button>
                                 </li>
                                 <li>
-                                    <button type="button" onClick={downloadCSV}>Download CSV</button>
+                                    <button
+                                        type="button"
+                                        onClick={viewAll}
+                                        className="block w-full text-left px-4 py-2 hover:bg-gray-100 transition whitespace-nowrap"
+                                    >
+                                        👀 View All
+                                    </button>
+                                </li>
+                                <li>
+                                    <button
+                                        type="button"
+                                        onClick={downloadCSV}
+                                        className="block w-full text-left px-4 py-2 hover:bg-gray-100 transition whitespace-nowrap"
+                                    >
+                                        📥 Download CSV
+                                    </button>
                                 </li>
                             </ul>
                         </Dropdown>
@@ -1123,7 +1202,7 @@ const ComponentsAppsContacts = () => {
             <div className="datatables pagination-padding">
                 <DataTable<RecordType>
                     className="table-hover whitespace-nowrap"
-                    records={paginatedDetails}
+                    records={filteredItems}
                     columns={[
                         {
                             accessor: 'checkbox',
@@ -1264,7 +1343,7 @@ const ComponentsAppsContacts = () => {
                         }
                     ]}
                     highlightOnHover
-                    totalRecords={filteredItems.length}
+                    totalRecords={totalRecords}
                     recordsPerPage={pageSize}
                     page={page}
                     onPageChange={setPage}
@@ -1438,8 +1517,8 @@ const ComponentsAppsContacts = () => {
                                                     onChange={handleGroupNameChange}
                                                     isSearchable={false}
                                                     value={groupNames
-                                                        .filter((group) => selectedGroupIds.includes(group.groupId))
-                                                        .map((group) => ({
+                                                        .filter((group: any) => selectedGroupIds.includes(group.groupId))
+                                                        .map((group: any) => ({
                                                             value: group.groupId,
                                                             label: `${group.groupId} - ${group.name}`,
                                                         }))}

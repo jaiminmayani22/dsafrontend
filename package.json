@@ -35,7 +35,9 @@
         "@types/react-dom": "18.0.10",
         "@x1mrdonut1x/nouislider-react": "^3.4.3",
         "apexcharts": "^3.37.1",
+        "bootstrap": "^5.3.3",
         "canvas2svg": "^1.0.16",
+        "dom-to-image": "^2.6.0",
         "draft-js": "^0.11.7",
         "dsa-next": "file:",
         "easymde": "^2.18.0",
@@ -89,6 +91,7 @@
     "devDependencies": {
         "@tailwindcss/forms": "^0.5.3",
         "@tailwindcss/typography": "^0.5.8",
+        "@types/dom-to-image": "^2.6.7",
         "@types/lodash": "^4.14.191",
         "@types/react-copy-to-clipboard": "^5.0.4",
         "@types/react-flatpickr": "^3.8.8",

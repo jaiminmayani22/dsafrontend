@@ -9,6 +9,7 @@ import Flatpickr from 'react-flatpickr';
 import Select, { MultiValue } from 'react-select';
 import { OptionProps } from 'react-select';
 import { useRouter } from 'next/navigation'
+import AsyncSelect from "react-select/async";
 
 //ELEMENTS
 import IconInfoHexagon from '@/components/icon/icon-info-hexagon';
@@ -61,6 +62,7 @@ const ComponentsAppsCreateNewCampaign = () => {
     const [selectedDocument, setSelectedDocument] = useState<any>(null);
     const fileInputRef = useRef(null);
     const [loading, setLoading] = useState(false);
+    const [defaultOptions, setDefaultOptions] = useState([]);
 
     //FETCH GROUPS
     useEffect(() => {
@@ -93,8 +95,41 @@ const ComponentsAppsCreateNewCampaign = () => {
     }, []);
 
     //get all contacts
+    // useEffect(() => {
+    //     const fetchAllContacts = async () => {
+    //         try {
+    //             const response = await fetch(apis.getAllClient, {
+    //                 method: 'POST',
+    //                 headers: {
+    //                     'Content-Type': 'application/json',
+    //                     'Authorization': `Bearer ${token}`,
+    //                 },
+    //                 body: JSON.stringify({
+    //                     limit: 0,
+    //                 }),
+    //             });
+    //             const data = await response.json();
+    //             if (response.status === 401 && data.message === "Token expired! Please login again") {
+    //                 showMessage(data.message, 'error');
+    //                 router.push('/auth/boxed-signin');
+    //                 throw new Error('Token expired');
+    //             }
+    //             if (!response.ok) {
+    //                 showMessage(data.message, 'error');
+    //                 throw new Error(`HTTP error! status: ${response.status}`);
+    //             }
+    //             console.log("data.data : ", data.data.length)
+    //             setContacts(data.data);
+    //         } catch (error) {
+    //             console.error('Error fetching group names:', error);
+    //         }
+    //     };
+
+    //     fetchAllContacts();
+    // }, []);
+
     useEffect(() => {
-        const fetchAllContacts = async () => {
+        const fetchInitialContacts = async () => {
             try {
                 const response = await fetch(apis.getAllClient, {
                     method: 'POST',
@@ -102,24 +137,25 @@ const ComponentsAppsCreateNewCampaign = () => {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`,
                     },
+                    body: JSON.stringify({
+                        limit: 50, // Load first 50 contacts by default
+                        pageCount: 1,
+                    }),
                 });
+
                 const data = await response.json();
-                if (response.status === 401 && data.message === "Token expired! Please login again") {
-                    showMessage(data.message, 'error');
-                    router.push('/auth/boxed-signin');
-                    throw new Error('Token expired');
-                }
-                if (!response.ok) {
-                    showMessage(data.message, 'error');
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                setContacts(data.data);
+                const options = data.data.map((contact: any) => ({
+                    value: contact.whatsapp_number,
+                    label: `${contact.whatsapp_number} - ${contact.name}`,
+                }));
+
+                setDefaultOptions(options);
             } catch (error) {
-                console.error('Error fetching group names:', error);
+                console.error('Error fetching initial contacts:', error);
             }
         };
 
-        fetchAllContacts();
+        fetchInitialContacts();
     }, []);
 
     //FETCH REFERENCE TEMPLATES
@@ -147,11 +183,6 @@ const ComponentsAppsCreateNewCampaign = () => {
         fetchReferenceTemplates();
     }, []);
 
-    //FETCH AUDIENCE COUNT
-    useEffect(() => {
-        calculateAudience();
-    }, [selectedAudience]);
-
     const [data, setData] = useState<any>({
         name: '',
         type: '',
@@ -159,6 +190,11 @@ const ComponentsAppsCreateNewCampaign = () => {
         receiver: '',
         groups: '',
     });
+
+    //FETCH AUDIENCE COUNT
+    useEffect(() => {
+        calculateAudience();
+    }, [selectedAudience, data.groups]);
 
     const showMessage = (msg = '', type = 'success') => {
         const toast: any = Swal.mixin({
@@ -187,6 +223,7 @@ const ComponentsAppsCreateNewCampaign = () => {
             ...prev,
             groups: groupNamesString,
         }));
+
     };
     const selectedGroupIds = data.groups ? data.groups.split(', ') : [];
 
@@ -457,6 +494,34 @@ const ComponentsAppsCreateNewCampaign = () => {
             .replace(/__(.*?)__/g, '<u>$1</u>')                                     // Underline only
             .replace(/\n/g, '<br>');                                                // Line breaks
     }
+
+    const loadOptions = async (inputValue: any, callback: any) => {
+        try {
+            const response = await fetch(apis.getAllClient, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    search: inputValue, // Fetch only matching contacts
+                    limit: 50, // Load in chunks
+                    pageCount: 1,
+                }),
+            });
+
+            const data = await response.json();
+            const options = data.data.map((contact: any) => ({
+                value: contact.whatsapp_number,
+                label: `${contact.whatsapp_number} - ${contact.name}`,
+            }));
+
+            callback(options);
+        } catch (error) {
+            console.error('Error fetching contacts:', error);
+            callback([]);
+        }
+    };
 
     return (
         <div>
@@ -731,7 +796,7 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                 >
                                                                     Select Contacts from Dropdown
                                                                 </label>
-                                                                <Select
+                                                                {/* <Select
                                                                     id="contacts"
                                                                     placeholder="Select an option"
                                                                     options={contacts?.map((contact: any) => ({
@@ -747,6 +812,16 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                             value: contact.whatsapp_number,
                                                                             label: `${contact.whatsapp_number} - ${contact.name}`,
                                                                         }))}
+                                                                    className="mt-1"
+                                                                /> */}
+                                                                <AsyncSelect
+                                                                    id="contacts"
+                                                                    placeholder="Search and select contacts"
+                                                                    loadOptions={loadOptions}
+                                                                    defaultOptions={defaultOptions}
+                                                                    isMulti
+                                                                    onChange={handleContactsChange}
+                                                                    isSearchable={true}
                                                                     className="mt-1"
                                                                 />
                                                             </div>
@@ -960,12 +1035,10 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                             <Select
                                                                 placeholder="Select an option"
                                                                 className="w-full sm:ml-2"
-                                                                options={referenceTemplates
-                                                                    .filter(
-                                                                        (template: any) =>
-                                                                            Number(template.width) === Number(selectedTemplate.data.width) &&
-                                                                            Number(template.height) === Number(selectedTemplate.data.height)
-                                                                    )
+                                                                options={referenceTemplates?.filter(
+                                                                    (template: any) =>
+                                                                        Number(template.width) === Number(selectedTemplate.data.width) &&
+                                                                        Number(template.height) === Number(selectedTemplate.data.height))
                                                                     .map((template: any) => ({
                                                                         value: template._id,
                                                                         label: template.name,
@@ -1125,8 +1198,7 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                         </>
                                                                     )}
                                                                 </button>
-
-                                                                {data.type === 'immediate' && (
+                                                                {/* {data.type === 'immediate' && (
                                                                     <button
                                                                         type="button"
                                                                         className="flex items-center gap-2 py-2 px-4 rounded-lg bg-green-600 text-white hover:bg-green-700 transition duration-300"
@@ -1164,7 +1236,7 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                             </>
                                                                         )}
                                                                     </button>
-                                                                )}
+                                                                )} */}
                                                             </div>
                                                         </div>
                                                     </form>

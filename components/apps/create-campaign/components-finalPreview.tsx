@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { log } from 'util';
 
 interface ImageWithLayersProps {
     selectedTemplate: any;
@@ -39,119 +40,81 @@ const ImageWithLayers: React.FC<ImageWithLayersProps> = ({ selectedTemplate, sel
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     selectedRefTemplate.layers.forEach((layer: any) => {
                         if (layer.type === 'text') {
-                            const quillClassMapping: { [key: string]: string } = {
-                                'ql-size-small': '20px',
-                                'ql-size-large': '38px',
-                                'ql-size-huge': '66px',
-                                'ql-font-serif': 'serif',
-                                'ql-font-monospace': 'monospace',
-                                'ql-font-sans-serif': 'sans-serif',
-                                'ql-font-roboto': 'Roboto',
-                                'ql-font-open-sans': 'Open Sans',
-                                'ql-font-lato': 'Lato',
+                            let text = layer.content;
+                            let currentY = layer.calculatedy;
+                            const replacements: Record<'logo' | 'name' | 'address' | 'number' | 'website' | 'email' | 'instagramId' | 'facebookId', string> = {
+                                logo: "logo", // This will trigger rectangle rendering
+                                name: "Tom Smith",
+                                address: "Rajkot",
+                                number: "+919586985698",
+                                website: "www.dashrathsilverart.com",
+                                email: "dashrathsilverart@gmail.com",
+                                instagramId: "dashrathsilverart",
+                                facebookId: "Dashrath Silver Art",
                             };
 
-                            const tempDiv = document.createElement('div');
-                            tempDiv.innerHTML = layer.content;
-                            const textElements = tempDiv.querySelectorAll('p, span, em, strong, u');
+                            text = replacements[text as keyof typeof replacements] || text;
 
-                            const extractTextContent = (element: any) => {
-                                if (element.children.length === 0) {
-                                    return element.innerText || element.textContent;
-                                }
-                                return '';
-                            };
+                            if (!text.trim()) return;
+                            if (text.toLowerCase() === "logo") {
+                                const rectWidth = layer.width;
+                                const rectHeight = layer.size;
 
-                            let currentY = layer.y;
-                            textElements.forEach((textElement) => {
-                                const replacements: Record<'logo' | 'name' | 'address' | 'number' | 'website' | 'email' | 'instagramId' | 'facebookId', string> = {
-                                    logo: "logo", // This will trigger rectangle rendering
-                                    name: "Tom Smith",
-                                    address: "Rajkot",
-                                    number: "+919586985698",
-                                    website: "www.dashrathsilverart.com",
-                                    email: "dashrathsilverart@gmail.com",
-                                    instagramId: "dashrathsilverart",
-                                    facebookId: "Dashrath Silver Art",
-                                };
+                                ctx.fillStyle = 'white';
+                                ctx.fillRect(
+                                    layer.calculatedx - rectWidth / 2,
+                                    currentY - rectHeight / 2,
+                                    rectWidth,
+                                    rectHeight
+                                );
 
-                                let text = extractTextContent(textElement);
-                                text = replacements[text as keyof typeof replacements] || text;
+                                ctx.strokeStyle = 'black';
+                                ctx.lineWidth = 2;
+                                ctx.strokeRect(
+                                    layer.calculatedx - rectWidth / 2,
+                                    currentY - rectHeight / 2,
+                                    rectWidth,
+                                    rectHeight
+                                );
 
-                                if (!text.trim()) return;
+                                const fontSize = `${rectHeight}px`;
+                                const fontFamily = layer.fontFamily || 'Times New Roman';
+                                ctx.font = `${fontSize} ${fontFamily}`;
+                                ctx.fillStyle = layer.fillStyle || 'black';
+                                ctx.textAlign = layer.textAlign || 'center';
+                                ctx.textBaseline = layer.textBaseline || 'middle';
 
-                                if (text.toLowerCase() === "logo") {
-                                    const rectWidth = 100;
-                                    const rectHeight = 50;
+                                ctx.fillText("logo", layer.calculatedx, currentY);
+                                currentY += rectHeight;
+                                return;
+                            }
 
-                                    ctx.fillStyle = 'white';
-                                    ctx.fillRect(layer.x - rectWidth / 2, currentY - rectHeight / 2, rectWidth, rectHeight);
-                                    ctx.strokeStyle = 'black';
-                                    ctx.lineWidth = 2;
-                                    ctx.strokeRect(layer.x - rectWidth / 2, currentY - rectHeight / 2, rectWidth, rectHeight);
+                            let fontSize = `${layer.size}px`;
+                            let fontFamily = layer.fontFamily || 'Times New Roman';
+                            let fontWeight = layer.fontWeight || 'normal';
+                            let fontStyle = layer.fontStyle || 'normal';
+                            let textDecoration = layer.textDecoration;
+                            let fillColor = layer.fillColor || 'black';
 
-                                    ctx.font = '40px Arial';
-                                    ctx.fillStyle = 'black';
-                                    ctx.textAlign = 'center';
-                                    ctx.textBaseline = 'middle';
-                                    ctx.fillText("logo", layer.x, currentY);
+                            ctx.font = `${fontStyle} ${fontWeight} ${fontSize} ${fontFamily}`;
 
-                                    currentY += rectHeight;
-                                    return;
-                                }
+                            ctx.fillStyle = fillColor;
+                            ctx.textAlign = layer.textAlign || 'center';
+                            ctx.textBaseline = layer.textBaseline || 'middle';
 
+                            ctx.fillText(text, layer.calculatedx, currentY);
+                            if (textDecoration === 'underline') {
+                                const textWidth = ctx.measureText(text).width;
+                                const underlineY = currentY + parseFloat(fontSize) * 0.1;
 
-                                let fontSize = '24px';
-                                let fontFamily = 'Times New Roman';
-                                let fontWeight = 'normal';
-                                let fontStyle = 'normal';
-                                let textDecoration = 'none';
-                                let fillColor = 'black';
-
-                                textElement.classList.forEach((cls: any) => {
-                                    if (quillClassMapping[cls as keyof typeof quillClassMapping]) {
-                                        if (cls.startsWith('ql-font')) {
-                                            fontFamily = quillClassMapping[cls];
-                                        }
-                                        if (cls.startsWith('ql-size')) {
-                                            fontSize = quillClassMapping[cls];
-                                        }
-                                    }
-                                });
-
-                                const style = textElement.getAttribute('style');
-                                if (style) {
-                                    const colorMatch = style.match(/color:\s*([^;]+);?/i);
-                                    if (colorMatch) {
-                                        fillColor = colorMatch[1];
-                                    }
-                                }
-
-                                if (textElement.tagName === 'STRONG' || (textElement instanceof HTMLElement && textElement.style.fontWeight === 'bold')) {
-                                    fontWeight = 'bold';
-                                }
-                                if (textElement.tagName === 'EM' || (textElement instanceof HTMLElement && textElement.style.fontWeight === 'italic')) {
-                                    fontStyle = 'italic';
-                                }
-                                if (textElement.tagName === 'U' || (textElement instanceof HTMLElement && textElement.style.fontWeight === 'underline')) {
-                                    textDecoration = 'underline';
-                                }
-
-                                ctx.font = `${fontWeight} ${fontStyle} ${fontSize} ${fontFamily}`;
-                                ctx.fillStyle = fillColor;
-                                ctx.textAlign = 'center';
-                                ctx.fillText(text, layer.x, currentY);
-
-                                if (textDecoration === 'underline') {
-                                    ctx.beginPath();
-                                    ctx.moveTo(layer.x, currentY + parseFloat(fontSize));
-                                    ctx.lineTo(layer.x + ctx.measureText(text).width, currentY + parseFloat(fontSize));
-                                    ctx.strokeStyle = fillColor;
-                                    ctx.lineWidth = 1;
-                                    ctx.stroke();
-                                }
-                                currentY += parseFloat(fontSize);
-                            });
+                                ctx.beginPath();
+                                ctx.moveTo(layer.calculatedx - textWidth / 2, underlineY);
+                                ctx.lineTo(layer.calculatedx + textWidth / 2, underlineY);
+                                ctx.strokeStyle = fillColor;
+                                ctx.lineWidth = 1;
+                                ctx.stroke();
+                            }
+                            currentY += parseFloat(fontSize);
                         }
                     });
                     setImageUrl(canvas.toDataURL('image/png'));

@@ -3,7 +3,6 @@
 // const SERVER = "http://localhost:8080/";
 // const SERVER = "https://dsaserver.onrender.com/";
 const SERVER = "https://newdsa.dsasilver.com/";
-// const SERVER = "http://172.20.10.5:8080/";
 
 if (!SERVER) {
     throw new Error('Server is not defined');
@@ -47,6 +46,8 @@ const apis = {
     getAllDeletedClient: `${SERVER}user/getAllDeletedClient`,
     hardDeleteClients: `${SERVER}user/hardDeleteClients`,
     restoreClients: `${SERVER}user/restoreClients`,
+    removeDuplicateLogs: `${SERVER}campaign/removeDuplicateLogs`,
+    removeDuplicates: `${SERVER}user/removeDuplicates`,
 
     //TEMPLATE
     templateImageUpload: `${SERVER}template/templateImageUpload`,

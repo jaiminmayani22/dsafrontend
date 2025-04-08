@@ -30,7 +30,7 @@ import apis from '../../../public/apis';
 import IconPlusCircle from '@/components/icon/icon-plus-circle';
 import { AnyARecord } from 'dns';
 
-const PAGE_SIZES = [10, 20, 50];
+const PAGE_SIZES = [10, 20, 30, 50, 100];
 
 const ComponentsAppsGroups = () => {
     const router = useRouter();
@@ -101,6 +101,7 @@ const ComponentsAppsGroups = () => {
                 return item.name.toLowerCase().includes(event.toLowerCase());
             });
         });
+        setPage(1);
     };
 
     //get all  groups
@@ -141,7 +142,9 @@ const ComponentsAppsGroups = () => {
                         'Content-Type': 'application/json',
                         Authorization: `Bearer ${token}`,
                     },
-                    body: JSON.stringify({ groupId: selectedGroup }),
+                    body: JSON.stringify({
+                        groupId: selectedGroup,
+                    }),
                 });
 
                 if (response.ok) {
@@ -163,12 +166,53 @@ const ComponentsAppsGroups = () => {
     }, [selectedGroup, params, token, apis]);
 
     useEffect(() => {
+        const fetchAll = async () => {
+            try {
+                const response = await fetch(apis.getAllClient, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        limit: 0,
+                        // pageCount: 1,
+                        search: searchQuery
+                    }),
+                });
+                const data = await response.json();
+
+                if (response.status === 401 && data.message === "Token expired! Please login again") {
+                    showMessage(data.message, 'error');
+                    router.push('/auth/boxed-signin');
+                    throw new Error('Token expired');
+                }
+
+                if (!response.ok) {
+                    showMessage(data.message, 'error');
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                setContacts(data.data);
+            } catch (error) {
+                console.error('Error fetching contacts:', error);
+            }
+        };
+
+        // if (selectedGroup !== null) {
+            fetchAll();
+        // }
+    }, []);
+
+    useEffect(() => {
         const updatePaginatedDetails = () => {
             let updatedItems = selectedGroup === null ? groupList : members;
 
-            if (searchQuery.trim() !== '') {
+            if (searchClient.trim() !== '') {
                 updatedItems = updatedItems.filter((item: any) =>
-                    item.name?.toLowerCase().includes(searchQuery.toLowerCase())
+                    item.name?.toLowerCase().includes(searchClient.toLowerCase()) ||
+                    item.whatsapp_number?.toLowerCase().includes(searchClient.toLowerCase()) ||
+                    item.mobile_number?.toLowerCase().includes(searchClient.toLowerCase()) ||
+                    item.city?.toLowerCase().includes(searchClient.toLowerCase())
                 );
             }
 
@@ -189,7 +233,7 @@ const ComponentsAppsGroups = () => {
         };
 
         updatePaginatedDetails();
-    }, [searchQuery, selectedGroup, groupList, members, sortStatus, page, pageSize]);
+    }, [searchClient, selectedGroup, groupList, members, sortStatus, page, pageSize]);
 
     useEffect(() => {
         setPage(1);
@@ -197,7 +241,7 @@ const ComponentsAppsGroups = () => {
 
     useEffect(() => {
         setPage(1);
-    }, [searchQuery]);
+    }, [searchClient]);
 
     useEffect(() => {
         if (selectedGroup === null) {
@@ -244,8 +288,9 @@ const ComponentsAppsGroups = () => {
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    setFilteredItems([...filteredItems, data.data]);
-                    filteredItems.splice(0, 0, data.data);
+                    const newGroup = data.data;
+                    setGroups([...groupList, newGroup]);
+                    setFilteredItems([newGroup, ...filteredItems]);
                     showMessage('Group has been added successfully.');
                 } else {
                     showMessage(`Failed to add Group: ${data.message}`, 'error');
@@ -286,12 +331,19 @@ const ComponentsAppsGroups = () => {
 
             if (response.ok) {
                 const deletedId = await response.json();
-                setFilteredItems((filteredItems: any) => filteredItems?.filter((group: any) => group._id !== deletedId.data));
-                showMessage('Group has been deleted successfully.');
-                return true;
+                if (deletedId?.data) {
+                    setFilteredItems((filteredItems: any) =>
+                        filteredItems.filter((group: any) => group._id !== deletedId.data)
+                    );
+                    setGroups((groupList: any) =>
+                        groupList.filter((group: any) => group._id !== deletedId.data)
+                    );
+                    showMessage('Group has been deleted successfully.');
+                } else {
+                    showMessage('Error deleting group.');
+                }
             } else {
                 showMessage('Group not deleted, Please try again.', 'error');
-                return true;
             }
         } catch (error) {
             console.error('Error deleting contacts:', error);
@@ -348,31 +400,6 @@ const ComponentsAppsGroups = () => {
 
     const addUser = async () => {
         setNewAdd(true);
-        try {
-            const response = await fetch(apis.getAllClient, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify(params),
-            });
-            const data = await response.json();
-
-            if (response.status === 401 && data.message === "Token expired! Please login again") {
-                showMessage(data.message, 'error');
-                router.push('/auth/boxed-signin');
-                throw new Error('Token expired');
-            }
-
-            if (!response.ok) {
-                showMessage(data.message, 'error');
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            setContacts(data.data);
-        } catch (error) {
-            console.error('Error fetching contacts:', error);
-        }
     };
 
     const viewUser = (_id: any = null) => {
@@ -408,7 +435,7 @@ const ComponentsAppsGroups = () => {
 
     const exportContacts = async (selectedGroup: any) => {
         const response = await fetch(`${apis.exportContacts}?groupId=${selectedGroup}`, {
-            method: 'GET',
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
@@ -465,33 +492,24 @@ const ComponentsAppsGroups = () => {
 
                     if (result.changes?.length > 0) {
                         const invalidEntries = result.changes.filter((item: any) => item.action === 'invalid');
+
                         if (invalidEntries.length > 0) {
                             setInvalidEntries(invalidEntries);
                             setIsInvalidModalOpen(true);
-                        } else {
-                            if (result.data?.length > 0) {
-                                const uniqueItems = [
-                                    ...filteredItems,
-                                    ...result.data.filter(
-                                        (newItem: any) => !filteredItems.some((existingItem: any) => existingItem._id === newItem._id)
-                                    ),
-                                ];
-                                setFilteredItems(uniqueItems);
-                            }
-                            showMessage(result.message);
+                            return;
                         }
-                    } else {
-                        if (result.data?.length > 0) {
-                            const uniqueItems = [
-                                ...filteredItems,
-                                ...result.data.filter(
-                                    (newItem: any) => !filteredItems.some((existingItem: any) => existingItem._id === newItem._id)
-                                ),
-                            ];
-                            setFilteredItems(uniqueItems);
-                        }
-                        showMessage(result.message);
                     }
+
+                    if (result.data?.length > 0) {
+                        const uniqueItems = [
+                            ...filteredItems,
+                            ...result.data.filter(
+                                (newItem: any) => !filteredItems.some((existingItem: any) => existingItem._id === newItem._id)
+                            ),
+                        ];
+                        setFilteredItems(uniqueItems);
+                    }
+                    showMessage(result.message);
                 } catch (error) {
                     showMessage('Failed to import contacts. Please try again.', 'error');
                 }
@@ -609,7 +627,6 @@ const ComponentsAppsGroups = () => {
             return mobileRegexWithoutCountryCode.test(number);
         }
     };
-
 
     const saveUser = async (e: React.MouseEvent<HTMLButtonElement>) => {
         e.preventDefault();
@@ -1011,16 +1028,13 @@ const ComponentsAppsGroups = () => {
             const data = await response.json();
 
             if (response.ok) {
-                const uniqueItems = [...filteredItems];
-
-                data.data.forEach((newItem: any) => {
-                    const index = uniqueItems.findIndex(item => item._id === newItem._id);
-                    if (index !== -1) {
-                        uniqueItems[index] = newItem;
-                    } else {
-                        uniqueItems.push(newItem);
-                    }
+                const combinedItems = [...filteredItems, ...data.data];
+                const uniqueItemsMap = new Map<string, any>();
+                combinedItems.forEach(item => {
+                    uniqueItemsMap.set(item._id, item);
                 });
+                const uniqueItems = Array.from(uniqueItemsMap.values());
+                setMembers(uniqueItems);
                 setFilteredItems(uniqueItems);
                 showMessage(data.message);
             } else {
@@ -1086,6 +1100,7 @@ const ComponentsAppsGroups = () => {
                                         setFilteredItems(null);
                                         setFilteredItems(groupList);
                                         setSelectedGroup(null);
+                                        setMembers(null);
                                     }}
                                 >
                                     <IconArrowBackward className="text-primary" />

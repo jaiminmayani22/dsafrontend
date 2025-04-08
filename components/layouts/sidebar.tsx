@@ -39,6 +39,9 @@ import IconListCheck from '../icon/icon-list-check';
 import IconUser from '../icon/icon-user';
 import IconUsersGroup from '../icon/icon-users-group';
 import IconMenu from '../icon/icon-menu';
+import IconImage from '../icon/icon-image';
+import IconMessage from '../icon/icon-message';
+import IconMessage2 from '../icon/icon-message2';
 
 const Sidebar = () => {
     const dispatch = useDispatch();
@@ -162,8 +165,8 @@ const Sidebar = () => {
                                     <li className="nav-item">
                                         <Link href="/apps/create-template" className="group">
                                             <div className="flex items-center">
-                                                <IconPlus className="shrink-0 group-hover:!text-primary" />
-                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Create Template')}</span>
+                                                <IconImage className="shrink-0 group-hover:!text-primary" />
+                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Template')}</span>
                                             </div>
                                         </Link>
                                     </li>
@@ -174,8 +177,8 @@ const Sidebar = () => {
                                     <li className="nav-item">
                                         <Link href="/apps/create-campaign" className="group">
                                             <div className="flex items-center">
-                                                <IconMenuFontIcons className="shrink-0 group-hover:!text-primary" />
-                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Create Campaign')}</span>
+                                                <IconMessage2 className="shrink-0 group-hover:!text-primary" />
+                                                <span className="text-black ltr:pl-3 rtl:pr-3 dark:text-[#506690] dark:group-hover:text-white-dark">{t('Campaign')}</span>
                                             </div>
                                         </Link>
                                     </li>
@@ -229,7 +232,7 @@ const Sidebar = () => {
                                     </li>
                                 </ul>
                             </li>
-                            <li className="nav-item">
+                            {/* <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">
                                         <Link href="/" className="group">
@@ -252,7 +255,7 @@ const Sidebar = () => {
                                         </Link>
                                     </li>
                                 </ul>
-                            </li>
+                            </li> */}
                             <li className="nav-item">
                                 <ul>
                                     <li className="nav-item">

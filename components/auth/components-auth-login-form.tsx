@@ -14,6 +14,7 @@ const ComponentsAuthLoginForm = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);  // Track loading state
 
     const submitForm = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -22,6 +23,8 @@ const ComponentsAuthLoginForm = () => {
             setError('Email and password are required.');
             return;
         }
+
+        setLoading(true);  // Set loading to true when the request starts
 
         try {
             const API = apis.userLogin;
@@ -39,10 +42,12 @@ const ComponentsAuthLoginForm = () => {
 
             const data = await response.json();
             localStorage.setItem('authToken', data.token);
-            router.push('/');
+            router.push('/apps/contacts/');
         } catch (error) {
             setError('Login failed. Please try again.');
             console.error('There was an error!', error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -52,7 +57,15 @@ const ComponentsAuthLoginForm = () => {
             <div>
                 <label htmlFor="Email">Email</label>
                 <div className="relative text-white-dark">
-                    <input id="Email" type="email" placeholder="Enter Email" className="form-input ps-10 placeholder:text-white-dark" value={email} onChange={(e) => setEmail(e.target.value)} />
+                    <input
+                        id="Email"
+                        type="email"
+                        placeholder="Enter Email"
+                        className="form-input ps-10 placeholder:text-white-dark"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        disabled={loading}
+                    />
                     <span className="absolute start-4 top-1/2 -translate-y-1/2">
                         <IconMail fill={true} />
                     </span>
@@ -68,6 +81,7 @@ const ComponentsAuthLoginForm = () => {
                         className="form-input ps-10 placeholder:text-white-dark"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        disabled={loading}
                     />
                     <span className="absolute start-4 top-1/2 -translate-y-1/2">
                         <IconLockDots fill={true} />
@@ -81,8 +95,12 @@ const ComponentsAuthLoginForm = () => {
                 </div>
             </div>
 
-            <button type="submit" className="btn btn-gradient !mt-6 w-full border-0 uppercase shadow-[0_10px_20px_-10px_rgba(67,97,238,0.44)]">
-                Sign in
+            <button
+                type="submit"
+                className="btn btn-gradient !mt-6 w-full border-0 uppercase shadow-[0_10px_20px_-10px_rgba(67,97,238,0.44)]"
+                disabled={loading}
+            >
+                {loading ? 'Signing in...' : 'Sign in'}
             </button>
         </form>
     );

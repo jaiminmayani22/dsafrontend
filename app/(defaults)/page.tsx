@@ -2,13 +2,16 @@ import ComponentsDashboardSales from '@/components/dashboard/components-dashboar
 import ComponentsContacts from '@/components/apps/contacts/components-apps-contacts';
 import { Metadata } from 'next';
 import React from 'react';
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
     title: 'DSA',
 };
 
 const Sales = () => {
-    return <ComponentsContacts />;
+    redirect('/apps/contacts');
+
+    // return <ComponentsContacts />;
     // return <ComponentsDashboardSales />;
 };
 

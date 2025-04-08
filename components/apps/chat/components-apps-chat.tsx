@@ -142,7 +142,8 @@ const ComponentsAppsChat = () => {
     const [isShowUserChat, setIsShowUserChat] = useState(false);
     const [selectedUser, setSelectedUser] = useState<any>(null);
     const [textMessage, setTextMessage] = useState('');
-    const [filteredItems, setFilteredItems] = useState<any>();
+    const [filteredItems, setFilteredItems] = useState([]);
+    const [history, setHistory] = useState([]);
     const [item, setItem] = useState<any>([]);
     const [isDropdownOpen, setDropdownOpen] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -163,13 +164,22 @@ const ComponentsAppsChat = () => {
                         if (response.status === 401 && data.message === "Token expired! Please login again") {
                             showMessage(data.message, 'error');
                             router.push('/auth/boxed-signin');
-                            throw new Error('Token expired');
+                            return;
                         }
                         if (!response.ok) {
                             showMessage(data.message, 'error');
-                            throw new Error(`HTTP error! status: ${response.status}`);
+                            return;
                         }
-                        setFilteredItems(data.data);
+                        const sortedData = data.data
+                            .filter((item: any) => item.messages && item.messages.length > 0)
+                            .sort((a: any, b: any) => {
+                                const dateA = new Date(a.messages[0].updatedAt).getTime();
+                                const dateB = new Date(b.messages[0].updatedAt).getTime();
+                                return dateB - dateA;
+                            });
+
+                        setFilteredItems(sortedData);
+                        setHistory(sortedData);
                     });
                 })
                 .catch(error => {
@@ -195,10 +205,11 @@ const ComponentsAppsChat = () => {
                 if (response.status === 401 && data.message === "Token expired! Please login again") {
                     showMessage(data.message, 'error');
                     router.push('/auth/boxed-signin');
-                    throw new Error('Token expired');
+                    return;
                 }
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
+                    return;
                 }
                 setItem(data.data);
             } catch (error) {
@@ -211,11 +222,14 @@ const ComponentsAppsChat = () => {
 
     useEffect(() => {
         setFilteredItems(() => {
-            return contactList.filter((d) => {
-                return d.name.toLowerCase().includes(searchUser.toLowerCase());
-            });
+            if (searchUser.trim() === "") {
+                return history;
+            }
+            return history.filter((d: any) =>
+                d.from.toLowerCase().includes(searchUser.toLowerCase())
+            );
         });
-    }, [searchUser]);
+    }, [searchUser, history]);
 
     const scrollToBottom = () => {
         if (isShowUserChat) {
@@ -333,8 +347,8 @@ const ComponentsAppsChat = () => {
                     <div className="flex items-center justify-between">
                         <div className="flex items-center">
                             <div className="mx-3">
-                                <p className="mb-1 font-semibold">{item.name}</p>
-                                <p className="text-xs text-white-dark">{item.phoneNo}</p>
+                                <p className="mb-1 font-semibold">{item?.name}</p>
+                                <p className="text-xs text-white-dark">{item?.phoneNo}</p>
                             </div>
                         </div>
                     </div>

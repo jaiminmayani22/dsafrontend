@@ -11,6 +11,7 @@ import apis from '../../../public/apis';
 import IconRestore from '@/components/icon/icon-restore';
 import Swal from 'sweetalert2';
 import { useRouter } from 'next/navigation'
+import IconCopy from '@/components/icon/icon-copy';
 
 const ComponentsAppsTrash = () => {
     const router = useRouter();
@@ -141,19 +142,19 @@ const ComponentsAppsTrash = () => {
                 });
 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    showMessage(`HTTP error! status: ${response.status}`, 'error');
+                    return;
+                } else {
+                    const data = await response.json();
+                    const remainingItems = items.filter((user: any) => !ids.includes(user._id));
+                    setItems(remainingItems);
+                    setRecords(remainingItems);
+                    setInitialRecords(remainingItems);
+                    setSelectedRecords([]);
+                    setSearch('');
+                    setPage(1);
+                    showMessage('Successfully deleted selected Contacts');
                 }
-
-                const data = await response.json();
-                const remainingItems = items.filter((user: any) => !ids.includes(user._id));
-
-                setRecords(remainingItems);
-                setInitialRecords(remainingItems);
-                setItems(remainingItems);
-                setSelectedRecords([]);
-                setSearch('');
-                setPage(1);
-                showMessage('Successfully deleted selected Contacts');
             } catch (error) {
                 console.error('Error deleting contacts:', error);
             }
@@ -179,32 +180,70 @@ const ComponentsAppsTrash = () => {
                     },
                     body: JSON.stringify({ ids }),
                 });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
                 const data = await response.json();
-                const updatedItems = items.map((user: any) => {
-                    if (ids.includes(user._id)) {
-                        return { ...user, isDeleted: false };
-                    }
-                    return user;
-                });
-                setRecords(updatedItems);
-                setInitialRecords(updatedItems);
-                setItems(updatedItems);
-                setSelectedRecords([]);
-                setSearch('');
-                setPage(1);
-                showMessage('Successfully restored selected Contacts');
+                if (!response.ok) {
+                    showMessage(data, 'error');
+                    return;
+                } else {
+                    const remainingItems = items.filter((user: any) => !ids.includes(user._id));
+                    setItems(remainingItems);
+                    setRecords(remainingItems);
+                    setInitialRecords(remainingItems);
+                    setSelectedRecords([]);
+                    setSearch('');
+                    setPage(1);
+                    showMessage('Successfully restored selected Contacts');
+                }
             } catch (error) {
                 console.error('Error restoring contacts:', error);
             }
         }
     };
 
+    const clearDuplicateLogs = async () => {
+        try {
+            const response = await fetch(apis.removeDuplicateLogs, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                showMessage(data.message, 'error');
+                return;
+            } else {
+                showMessage(`${data.totalDuplicatesDeleted} ${data.message}`);
+            }
+        } catch (error) {
+            console.error('Error restoring contacts:', error);
+        }
+    };
+
+    const clearDuplicateContacts = async () => {
+        try {
+            const response = await fetch(apis.removeDuplicateLogs, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                showMessage(data.message, 'error');
+                return;
+            } else {
+                showMessage(`${data.totalDuplicatesDeleted} ${data.message}`);
+            }
+        } catch (error) {
+            console.error('Error restoring contacts:', error);
+        }
+    };
+
     const handleCheckboxChange = (record: any) => {
-        const isSelected = selectedRecords.some(selected => selected._id === record._id);
+        const isSelected = isRecordSelected(record);
         if (isSelected) {
             setSelectedRecords(selectedRecords.filter(selected => selected._id !== record._id));
         } else {
@@ -218,12 +257,15 @@ const ComponentsAppsTrash = () => {
 
     const handleSelectAllChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            setSelectedRecords(records);
+            setSelectedRecords(initialRecords);
         } else {
             setSelectedRecords([]);
         }
     };
-    const isAllSelected = selectedRecords.length === records.length && records.length > 0;
+
+    const isAllSelected =
+        records.length > 0 &&
+        records.every((record: any) => selectedRecords.some(selected => selected._id === record._id));
 
     const openModal = (imageUrl: string) => {
         setSelectedImage(imageUrl);
@@ -248,15 +290,23 @@ const ComponentsAppsTrash = () => {
                             <IconRestore />
                             Restore
                         </button>
-                    </div>
-                    <div className="ltr:ml-auto rtl:mr-auto">
-                        <input type="text" className="form-input w-auto" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                        <button type="button" className="btn btn-dark gap-2" onClick={() => clearDuplicateLogs()}>
+                            <IconCopy />
+                            Clear Duplicate Message logs
+                        </button>
+                        <button type="button" className="btn btn-dark gap-2" onClick={() => clearDuplicateContacts()}>
+                            <IconCopy />
+                            Clear Duplicate Contacts
+                        </button>
                     </div>
                     {selectedRecords.length > 0 && (
                         <div className="w-full text-sm text-gray-600">
                             {selectedRecords.length} contact{selectedRecords.length > 1 ? 's' : ''} selected
                         </div>
                     )}
+                    <div className="ltr:ml-auto rtl:mr-auto">
+                        <input type="text" className="form-input w-auto" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} />
+                    </div>
                 </div>
 
                 <div className="datatables pagination-padding">
@@ -283,6 +333,7 @@ const ComponentsAppsTrash = () => {
                             },
                             {
                                 accessor: 'company_profile_picture',
+                                title: 'Logo',
                                 sortable: true,
                                 render: (record: any) => {
                                     const { company_profile_picture } = record;
@@ -345,14 +396,6 @@ const ComponentsAppsTrash = () => {
                             },
                             {
                                 accessor: 'company_name',
-                                sortable: true,
-                            },
-                            {
-                                accessor: 'createdAt',
-                                sortable: true,
-                            },
-                            {
-                                accessor: 'updatedAt',
                                 sortable: true,
                             },
                             {

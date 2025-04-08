@@ -4,7 +4,7 @@
 import { sortBy } from 'lodash';
 import { DataTableSortStatus, DataTable } from 'mantine-datatable';
 import Link from 'next/link';
-import React, { Fragment, useEffect, useState } from 'react';
+import React, { Fragment, useEffect, useState, useRef } from 'react';
 import Swal from 'sweetalert2';
 import { useSelector } from 'react-redux';
 import { useRouter } from 'next/navigation'
@@ -33,13 +33,24 @@ const ComponentsAppsCreateCampaign = () => {
     const token = localStorage.getItem('authToken');
     if (!token) {
         router.push('/auth/boxed-signin');
-    } const [items, setItems] = useState<any>([]);
+    }
+    const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-    const [page, setPage] = useState<any>(1);
-    const PAGE_SIZES = [10, 20, 30, 50, 100];
-    const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
+    const [items, setItems] = useState<any>([]);
     const [initialRecords, setInitialRecords] = useState<any>([]);
     const [records, setRecords] = useState<any[]>([]);
+    const [filteredRecords, setFilteredRecords] = useState([]);
+
+    const [page, setPage] = useState(1);
+    const PAGE_SIZES = [10, 20, 30, 50, 100];
+    const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
+    const [totalRecords, setTotalRecords] = useState(10);
+    const [search, setSearch] = useState<any>('');
+    const [sortStatus, setSortStatus] = useState<DataTableSortStatus>({
+        columnAccessor: 'createdAt',
+        direction: 'desc',
+    });
+
     const [selectedRecords, setSelectedRecords] = useState<any>([]);
     const [isModalOpen, setIsModalOpen] = useState<any>(false);
     const [selectedImage, setSelectedImage] = useState<any>(null);
@@ -49,11 +60,6 @@ const ComponentsAppsCreateCampaign = () => {
     const [phonenumberHealth, setPhonenumberHealth] = useState<any>(null);
     const [wabaHealth, setWabaHealth] = useState<any>(null);
     const [businessHealth, setBusinessHealth] = useState<any>(null);
-    const [search, setSearch] = useState<any>('');
-    const [sortStatus, setSortStatus] = useState<DataTableSortStatus>({
-        columnAccessor: 'createdAt',
-        direction: 'desc',
-    });
     const [duplicateCampaignName, setDuplicateCampaignName] = useState("");
     const [duplicateCampaignId, setDuplicateCampaignId] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -70,8 +76,23 @@ const ComponentsAppsCreateCampaign = () => {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`,
                     },
+                    body: JSON.stringify({
+                        limit: pageSize,
+                        pageCount: page,
+                        search: search,
+                        sortingField: sortStatus.columnAccessor,
+                        sortingOrder: sortStatus.direction,
+                        filter: {
+                            type: activeFilter === "Immediate Campaigns" ? "immediate" :
+                                activeFilter === "Schedule Campaigns" ? "schedule" : undefined,
+                            freezedAudienceIds: activeFilter === "Freezed Campaign" ? true : undefined,
+                            nameEndsWith: activeFilter === "Re-target Campaigns" ? "retarget" : undefined,
+                        },
+                    }),
                 });
+
                 const data = await response.json();
+
                 if (response.status === 401 && data.message === "Token expired! Please login again") {
                     showMessage(data.message, 'error');
                     router.push('/auth/boxed-signin');
@@ -80,54 +101,39 @@ const ComponentsAppsCreateCampaign = () => {
 
                 if (!response.ok) {
                     showMessage(data.message, 'error');
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    return;
                 }
-                setItems(data);
+
+                setItems(data.data);
+                setTotalRecords(data.totalRecords);
+                const hasProcessingCampaign = data.data.some((campaign: any) => campaign.status === "processing");
+                if (hasProcessingCampaign) {
+                    if (!intervalRef.current) {
+                        intervalRef.current = setInterval(getAllCampaigns, 5000);
+                    }
+                } else {
+                    if (intervalRef.current) {
+                        clearInterval(intervalRef.current);
+                        intervalRef.current = null;
+                    }
+                }
             } catch (error) {
-                console.error('Error fetching contacts:', error);
+                console.error('Error fetching campaigns:', error);
             }
         };
 
         getAllCampaigns();
-    }, []);
 
-    useEffect(() => {
-        if (items && Array.isArray(items)) {
-            setInitialRecords(items);
-        }
-    }, [items]);
+        return () => {
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+            }
+        };
+    }, [page, pageSize, search, sortStatus, activeFilter]);
 
     useEffect(() => {
         setPage(1);
-    }, [pageSize]);
-
-    useEffect(() => {
-        const from = (page - 1) * pageSize;
-        const to = from + pageSize;
-
-        if (Array.isArray(initialRecords)) {
-            setRecords([...initialRecords.slice(from, to)]);
-        }
-    }, [page, pageSize, initialRecords]);
-
-    useEffect(() => {
-        setInitialRecords(() => {
-            return items.filter((item: any) => {
-                return (
-                    item.name.toLowerCase().includes(search.toLowerCase())
-                );
-            });
-        });
-    }, [search]);
-
-    useEffect(() => {
-        if (initialRecords?.length) {
-            const sortedRecords = sortBy(initialRecords, sortStatus.columnAccessor);
-            const finalRecords = sortStatus.direction === 'desc' ? sortedRecords.reverse() : sortedRecords;
-            setRecords(finalRecords);
-            setPage(1);
-        }
-    }, [sortStatus, initialRecords]);
+    }, [pageSize, search]);
 
     const showMessage = (msg = '', type = 'success') => {
         const toast: any = Swal.mixin({
@@ -150,8 +156,6 @@ const ComponentsAppsCreateCampaign = () => {
                 if (_id) {
                     await deleteTemplateAPI(_id);
                     const updatedItems = items.filter((user: any) => user._id !== _id);
-                    setRecords(updatedItems);
-                    setInitialRecords(updatedItems);
                     setItems(updatedItems);
                     setSelectedRecords([]);
                     setSearch('');
@@ -161,14 +165,11 @@ const ComponentsAppsCreateCampaign = () => {
                     await Promise.all(ids.map((_id: any) => deleteTemplateAPI(_id)));
                     const result = items.filter((d: any) => !ids.includes(d._id as never));
 
-                    setRecords(result);
-                    setInitialRecords(result);
                     setItems(result);
                     setSelectedRecords([]);
                     setSearch('');
-                    setPage(1);
                 }
-                showMessage('Template deleted successfully');
+                showMessage('Campaign deleted successfully');
             } catch (error) {
                 console.error('Error deleting template:', error);
                 showMessage('An error occurred while deleting the template.', 'error');
@@ -189,6 +190,7 @@ const ComponentsAppsCreateCampaign = () => {
         if (!response.ok) {
             const errorData = await response.json();
             showMessage(errorData.message || 'Failed to delete the template.');
+            return;
         }
     };
 
@@ -202,25 +204,25 @@ const ComponentsAppsCreateCampaign = () => {
         setSelectedImage(null);
     };
 
-    const viewHealth = (overallHealth: any, phonenumberHealth: any, wabaHealth: any, businessHealth: any) => {
-        setOverallHealth(overallHealth);
-        setPhonenumberHealth(phonenumberHealth);
-        setWabaHealth(wabaHealth);
-        setBusinessHealth(businessHealth);
-        setViewHealthModal(true);
-    };
-
     const sendMessage = async (_id: any) => {
         setLoadingRows((prev) => ({ ...prev, [_id]: true }));
         try {
             const campaignIndex = items.findIndex((item: any) => item._id === _id);
             if (campaignIndex === -1) {
                 console.error('Campaign not found for ID:', _id);
+                showMessage('Campaign not found. Please refresh and try again.', 'error');
                 setLoadingRows((prev) => ({ ...prev, [_id]: false }));
                 return;
             }
 
-            const campaign = { ...items[campaignIndex] };
+            const campaign = { ...items[campaignIndex], status: "processing" };
+
+            setItems((prevItems: any) => {
+                const updatedItems = [...prevItems];
+                updatedItems[campaignIndex] = campaign;
+                return updatedItems;
+            });
+
             const response = await fetch(apis.sendMessage, {
                 method: 'POST',
                 headers: {
@@ -233,7 +235,7 @@ const ComponentsAppsCreateCampaign = () => {
             const data = await response.json();
             if (!response.ok) {
                 showMessage(data.message, 'error');
-                throw new Error(`HTTP error! status: ${response.status}`);
+                return;
             }
 
             campaign.status = "completed";
@@ -312,49 +314,16 @@ const ComponentsAppsCreateCampaign = () => {
 
     const handleSelectAllChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            setSelectedRecords(records);
+            setSelectedRecords(items);
         } else {
             setSelectedRecords([]);
         }
     };
-    const isAllSelected = selectedRecords.length === records.length && records.length > 0;
+    const isAllSelected = selectedRecords.length === items.length && items.length > 0;
 
     const isVideoUrl = (url: any) => /\.(mp4|mov|avi|wmv|flv|mkv)$/i.test(url);
 
     const isDocumentUrl = (url: any) => /\.(pdf|doc|docx|ppt|pptx|txt)$/i.test(url);
-
-    const filterRecords = (filter: string) => {
-        let filtered;
-        switch (filter) {
-            case 'All Campaigns':
-                filtered = initialRecords;
-                break;
-            case 'Re-target Campaigns':
-                filtered = initialRecords.filter((record: any) => record.name.endsWith('retarget'));
-                break;
-            case 'Immediate Campaigns':
-                filtered = initialRecords.filter((record: any) => record.type === 'immediate');
-                break;
-            case 'Schedule Campaigns':
-                filtered = initialRecords.filter((record: any) => record.type === 'schedule');
-                break;
-            case 'Freezed Campaign':
-                filtered = initialRecords.filter((record: any) => Array.isArray(record.freezedAudienceIds) && record.freezedAudienceIds.length > 0);
-                break;
-            default:
-                filtered = initialRecords;
-        }
-        setRecords(filtered);
-    };
-
-    const handleFilterChange = (filter: string) => {
-        setActiveFilter(filter);
-        filterRecords(filter);
-    };
-
-    const startIndex = (page - 1) * pageSize;
-    const endIndex = startIndex + pageSize;
-    const paginatedDetails = records.slice(startIndex, endIndex);
 
     return (
         <div>
@@ -390,7 +359,7 @@ const ComponentsAppsCreateCampaign = () => {
                                             <button
                                                 type="button"
                                                 className={filter === activeFilter ? 'active-filter' : ''}
-                                                onClick={() => handleFilterChange(filter)}
+                                                onClick={() => setActiveFilter(filter)}
                                             >
                                                 {filter}
                                             </button>
@@ -408,7 +377,7 @@ const ComponentsAppsCreateCampaign = () => {
                 <div className="datatables pagination-padding">
                     <DataTable
                         className="table-hover whitespace-nowrap"
-                        records={paginatedDetails}
+                        records={items}
                         columns={[
                             {
                                 accessor: 'checkbox',
@@ -430,26 +399,24 @@ const ComponentsAppsCreateCampaign = () => {
                             {
                                 accessor: 'name',
                                 sortable: true,
-                                render: ({ name, document, _id }) => {
-                                    const getThumbnail = (url: any) => {
+                                render: (record: { type: string; }, index: number) => {
+                                    const { name, document } = record as { type: string; name: string; document?: { url: string } }; // Type assertion
+
+                                    const getThumbnail = (url: string) => {
                                         if (isImageUrl(url)) {
                                             return (
                                                 <img
                                                     className="h-8 w-8 rounded-full object-cover"
                                                     src={url}
                                                     alt="Document Thumbnail"
+                                                    loading="lazy"
                                                 />
                                             );
                                         } else if (isVideoUrl(url)) {
                                             return (
                                                 <div className="h-8 w-8 flex items-center justify-center bg-blue-200 rounded-full text-blue-600">
                                                     {/* Video Icon */}
-                                                    <svg
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        className="h-4 w-4"
-                                                        fill="currentColor"
-                                                        viewBox="0 0 24 24"
-                                                    >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                                                         <path d="M17 10.5V7c0-.5-.3-.9-.7-1.1-.4-.2-.9-.1-1.3.2L11.5 9.5c-.2.1-.4.2-.5.5s-.1.4.1.5l3.5 3.4c.4.4.9.4 1.3.2.4-.2.7-.6.7-1.1v-3.5l2.8 1.8c.3.2.6.4.8.7s.2.6.2.9v5.5c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2v-11c0-1.1.9-2 2-2h12c1.1 0 2 .9 2 2v5.5l-3-1.9z" />
                                                     </svg>
                                                 </div>
@@ -458,12 +425,7 @@ const ComponentsAppsCreateCampaign = () => {
                                             return (
                                                 <div className="h-8 w-8 flex items-center justify-center bg-yellow-200 rounded-full text-yellow-600">
                                                     {/* Document Icon */}
-                                                    <svg
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        className="h-4 w-4"
-                                                        fill="currentColor"
-                                                        viewBox="0 0 24 24"
-                                                    >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                                                         <path d="M13 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V9l-5-7zm4 18H7V4h5v6h5v10z" />
                                                     </svg>
                                                 </div>
@@ -476,13 +438,12 @@ const ComponentsAppsCreateCampaign = () => {
                                         <div className="flex items-center font-semibold">
                                             {document?.url && (
                                                 <div
-                                                    className={`w-max rounded-full bg-white-dark/10 p-0.5 ltr:mr-2 rtl:ml-2 ${isImageUrl(document.url) ? "cursor-pointer" : ""
-                                                        }`}
+                                                    className={`w-max rounded-full bg-white-dark/10 p-0.5 ltr:mr-2 rtl:ml-2 ${isImageUrl(document?.url) ? "cursor-pointer" : ""}`}
                                                     onClick={() => {
-                                                        if (isImageUrl(document.url)) openModal(document.url);
+                                                        if (isImageUrl(document?.url)) openModal(document?.url);
                                                     }}
                                                 >
-                                                    {getThumbnail(document.url)}
+                                                    {getThumbnail(document?.url)}
                                                 </div>
                                             )}
                                             <div>{name}</div>
@@ -493,26 +454,27 @@ const ComponentsAppsCreateCampaign = () => {
                             {
                                 accessor: 'type',
                                 sortable: true,
-                                render: ({ type }) => (
+                                render: (record: { type: string }) => (
                                     <span>
-                                        {type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()}
+                                        {record.type.charAt(0).toUpperCase() + record.type.slice(1).toLowerCase()}
                                     </span>
                                 ),
                             },
                             {
-                                accessor: 'schedule',
+                                accessor: "schedule",
                                 sortable: true,
-                                render: ({ schedule }) => {
-                                    if (!schedule) return "-";
-                                    const date = new Date(schedule);
-                                    const formattedDate = date.toLocaleDateString('en-US', {
-                                        year: 'numeric',
-                                        month: 'long',
-                                        day: 'numeric',
+                                render: (record: { type: string; schedule?: string }) => {
+                                    if (!record.schedule) return "-";
+
+                                    const date = new Date(record.schedule);
+                                    const formattedDate = date.toLocaleDateString("en-US", {
+                                        year: "numeric",
+                                        month: "long",
+                                        day: "numeric",
                                     });
-                                    const formattedTime = date.toLocaleTimeString('en-US', {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
+                                    const formattedTime = date.toLocaleTimeString("en-US", {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
                                     });
 
                                     return (
@@ -526,46 +488,71 @@ const ComponentsAppsCreateCampaign = () => {
                             {
                                 accessor: 'status',
                                 sortable: true,
-                                render: ({ status }) => (
-                                    <span
-                                        className={`badge ${status === 'completed'
-                                            ? 'badge-outline-success'
-                                            : 'badge-outline-danger'
-                                            }`}
-                                    >
-                                        {status === 'completed' ? 'Completed' : 'Not Completed'}
-                                    </span>
-                                ),
+                                render: (record: { type: string; }, index: number) => {
+                                    const { status, process, countAudience } = record as { type: string; status: string; process: number; countAudience: number }; // Type assertion
+
+                                    return (
+                                        <span
+                                            className={`badge inline-flex items-center ${status === 'completed'
+                                                ? 'badge-outline-success'
+                                                : status === 'processing'
+                                                    ? 'badge-outline-warning'
+                                                    : 'badge-outline-danger'
+                                                }`}
+                                        >
+                                            {status === 'processing' && (
+                                                <div className="w-4 h-4 mr-1 border-4 border-dashed rounded-full animate-spin border-orange-300"></div>
+                                            )}
+                                            {status === 'completed'
+                                                ? 'Completed'
+                                                : status === 'processing'
+                                                    ? ` Processing ${countAudience > 0 && process > 0
+                                                        ? Math.round((process / countAudience) * 100) + '%'
+                                                        : '0%'
+                                                    }`
+                                                    : 'Not Completed'}
+                                        </span>
+                                    );
+                                },
                             },
-                            // {
-                            //     accessor: 'receiver',
-                            //     sortable: true,
-                            //     render: ({ receiver }) => (
-                            //         <span className="badge badge-outline-primary">{receiver ? receiver : 0}</span>
-                            //     ),
-                            // },
+                            {
+                                accessor: 'receiver',
+                                render: (record: { type: string; receiver?: string | number }) => {
+                                    const { receiver } = record as { type: string; receiver?: string | number };
+
+                                    return (
+                                        <span className="badge badge-outline-primary">{receiver ? receiver : 0}</span>
+                                    );
+                                },
+                            },
                             {
                                 title: 'Messages',
                                 accessor: 'countAudience',
-                                sortable: true,
-                                render: ({ countAudience }) => (
-                                    <span className="badge badge-outline-secondary">{countAudience}</span>
-                                ),
+                                render: (record: { type: string; countAudience?: number }) => {
+                                    const { countAudience } = record as { type: string; countAudience?: number };
+
+                                    return (
+                                        <span className="badge badge-outline-secondary">{countAudience}</span>
+                                    );
+                                },
                             },
                             {
                                 accessor: 'messageType',
-                                sortable: true,
-                                render: ({ messageType }) => (
-                                    <span>
-                                        {messageType.charAt(0).toUpperCase() + messageType.slice(1).toLowerCase()}
-                                    </span>
-                                ),
+                                render: (record: { type: string; messageType?: string }) => {
+                                    const { messageType } = record as { type: string; messageType?: string };
 
+                                    return (
+                                        <span>
+                                            {messageType ? messageType.charAt(0).toUpperCase() + messageType.slice(1).toLowerCase() : 'N/A'}
+                                        </span>
+                                    );
+                                },
                             },
                             {
                                 accessor: 'createdAt',
                                 sortable: true,
-                                render: ({ createdAt }) => {
+                                render: (record: { type: string; schedule?: string; createdAt?: string }, index: number) => {
+                                    const createdAt = record.createdAt || '';
                                     const date = new Date(createdAt);
                                     const formattedDate = date.toLocaleDateString('en-US', {
                                         year: 'numeric',
@@ -590,52 +577,56 @@ const ComponentsAppsCreateCampaign = () => {
                                 title: 'Actions',
                                 sortable: false,
                                 textAlignment: 'center',
-                                render: ({ _id, schedule, overallHealth, phonenumberHealth, wabaHealth, businessHealth, status }) => (
-                                    <div className="mx-auto flex w-max items-center gap-4">
-                                        {(schedule === "immediate" || status !== "completed") && (
-                                            <button
-                                                className={`flex hover:text-primary ${loadingRows[_id] ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                onClick={() => sendMessage(_id)}
-                                                disabled={loadingRows[_id]}
-                                            >
-                                                {loadingRows[_id] ? 'Sending...' : <IconSend />}
-                                            </button>
-                                        )}
+                                render: (record: { type: string; }, index: number) => {
+                                    const { _id, schedule, status, type } = record as unknown as { _id: string; schedule: string; status: string, type: string };
+                                    return (
+                                        <div className="mx-auto flex w-max items-center gap-4">
+                                            {status !== "processing" && (
+                                                <>
+                                                    {(type === "immediate" && status !== "completed") && (
+                                                        <button
+                                                            className={`flex hover:text-primary ${loadingRows[_id] ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                            onClick={() => sendMessage(_id)}
+                                                            disabled={loadingRows[_id]}
+                                                        >
+                                                            {loadingRows[_id] ? 'Sending...' : <IconSend />}
+                                                        </button>
+                                                    )}
 
-                                        {status === "completed" ? (
-                                            <>
-                                                <button className="flex hover:text-primary" onClick={() => openDuplicateModal(_id)}>
-                                                    <IconCopy className="h-4.5 w-4.5" />
-                                                </button>
-                                                <Link href={`/apps/create-campaign/overview?_id=${_id}`} className="flex hover:text-info">
-                                                    <IconEye className="h-4.5 w-4.5" />
-                                                </Link>
-                                                <button type="button" className="flex hover:text-danger" onClick={() => deleteRow(_id)}>
-                                                    <IconTrashLines />
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Link href="/apps/create-campaign" className="flex hover:text-info">
-                                                    <IconEdit className="h-4.5 w-4.5" />
-                                                </Link>
-                                                <button className="flex hover:text-primary" onClick={() => openDuplicateModal(_id)}>
-                                                    <IconCopy className="h-4.5 w-4.5" />
-                                                </button>
-                                                <button type="button" className="flex hover:text-danger" onClick={() => deleteRow(_id)}>
-                                                    <IconTrashLines />
-                                                </button>
-                                            </>
-                                        )}
-                                    </div>
-                                ),
-                            },
+                                                    {status === "completed" ? (
+                                                        <>
+                                                            <button className="flex hover:text-primary" onClick={() => openDuplicateModal(_id)}>
+                                                                <IconCopy className="h-4.5 w-4.5" />
+                                                            </button>
+                                                            <Link href={`/apps/create-campaign/overview?_id=${_id}`} className="flex hover:text-info">
+                                                                <IconEye className="h-4.5 w-4.5" />
+                                                            </Link>
+                                                            <button type="button" className="flex hover:text-danger" onClick={() => deleteRow(_id)}>
+                                                                <IconTrashLines />
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <button className="flex hover:text-primary" onClick={() => openDuplicateModal(_id)}>
+                                                                <IconCopy className="h-4.5 w-4.5" />
+                                                            </button>
+                                                            <button type="button" className="flex hover:text-danger" onClick={() => deleteRow(_id)}>
+                                                                <IconTrashLines />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    );
+                                },
+                            }
                         ]}
                         highlightOnHover
-                        totalRecords={initialRecords?.length}
+                        totalRecords={totalRecords}
                         recordsPerPage={pageSize}
                         page={page}
-                        onPageChange={setPage}
+                        onPageChange={(p) => setPage(p)}
                         recordsPerPageOptions={PAGE_SIZES}
                         onRecordsPerPageChange={(size) => {
                             setPageSize(size);
