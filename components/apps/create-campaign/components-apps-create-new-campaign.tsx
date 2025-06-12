@@ -62,7 +62,12 @@ const ComponentsAppsCreateNewCampaign = () => {
     const [selectedDocument, setSelectedDocument] = useState<any>(null);
     const fileInputRef = useRef(null);
     const [loading, setLoading] = useState(false);
-    const [defaultOptions, setDefaultOptions] = useState([]);
+    const [defaultOptions, setDefaultOptions] = useState<any>([]);
+
+    const [sheetUrl, setSheetUrl] = useState('');
+    const [isImporting, setIsImporting] = useState(false);
+    const [isImported, setIsImported] = useState(false);
+    const [importCount, setImportCount] = useState(0);
 
     //FETCH GROUPS
     useEffect(() => {
@@ -363,6 +368,15 @@ const ComponentsAppsCreateNewCampaign = () => {
             );
         }
 
+        if (selectedAudience === 'sheetsAudience') {
+            if (importCount === 0) {
+                showMessage('Audience cannot be empty', 'error');
+                setLoading(false);
+                return;
+            }
+            formData.append('sheetUrl', sheetUrl);
+        }
+
         try {
             const response = await fetch(
                 messageType === 'marketing'
@@ -520,6 +534,39 @@ const ComponentsAppsCreateNewCampaign = () => {
         } catch (error) {
             console.error('Error fetching contacts:', error);
             callback([]);
+        }
+    };
+
+    const handleImportFromSheet = async () => {
+        try {
+            setIsImporting(true);
+            const sheetIdMatch = sheetUrl.match(/\/spreadsheets\/d\/e\/([a-zA-Z0-9-_]+)/);
+            if (!sheetIdMatch) {
+                alert("Invalid Sheet URL");
+                setIsImporting(false);
+                return;
+            }
+
+            const sheetId = sheetIdMatch[1];
+            //https://docs.google.com/spreadsheets/d/e/2PACX-1vScFd6IKizswGLCOVqMyfW1q02ZxaoOaAvzec39UhaBeecKY0Hfwzqi1XbQds42xvgoe6ycVULGbom-/pub?output=csv
+            const response = await fetch(
+                // `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${sheetName}!A2:B?key=${apiKey}`
+                `https://docs.google.com/spreadsheets/d/e/${sheetId}/pub?output=csv`
+            );
+
+            const csvText = await response.text();
+            const rows = csvText.trim().split('\n').slice(1);
+            if (rows.length === 0) {
+                alert("Sheet fetched but no valid contacts found.");
+            } else {
+                setIsImported(true);
+                setImportCount(rows.length);
+                alert(`Sheet fetched successfully with ${rows.length} contacts.`);
+            }
+        } catch (error) {
+            alert("Failed to import contacts.");
+        } finally {
+            setIsImporting(false);
         }
     };
 
@@ -760,6 +807,19 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                     <span className="text-white-dark ml-2">Quick Audience</span>
                                                                 </label>
                                                             </div>
+                                                            <div className="mb-2">
+                                                                <label className="inline-flex mt-1 cursor-pointer">
+                                                                    <input
+                                                                        type="radio"
+                                                                        name="audience"
+                                                                        className="form-radio"
+                                                                        value="sheetsAudience"
+                                                                        checked={selectedAudience === "sheetsAudience"}
+                                                                        onChange={() => setSelectedAudience("sheetsAudience")}
+                                                                    />
+                                                                    <span className="text-white-dark ml-2">Sheets Audience</span>
+                                                                </label>
+                                                            </div>
                                                         </div>
                                                     </div>
 
@@ -834,6 +894,46 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                     {`Selected Contacts Count: ${selectedContacts.length}`}
                                                                 </label>
                                                             </div>
+                                                        </div>
+                                                    )}
+                                                    {selectedAudience === "sheetsAudience" && (
+                                                        <div className="flex flex-col gap-4 mt-4">
+                                                            <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+                                                                <div className="flex flex-col sm:w-3/4">
+                                                                    <label htmlFor="sheetUrl" className="text-gray-700 font-medium mb-1">
+                                                                        Enter Google Sheet URL
+                                                                    </label>
+                                                                    <input
+                                                                        type="text"
+                                                                        id="sheetUrl"
+                                                                        value={sheetUrl}
+                                                                        onChange={(e) => setSheetUrl(e.target.value)}
+                                                                        placeholder="https://docs.google.com/spreadsheets/d/..."
+                                                                        className="border rounded px-3 py-2 w-full"
+                                                                        disabled={isImporting || isImported}
+                                                                    />
+                                                                </div>
+
+                                                                <div className="sm:w-1/4">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={handleImportFromSheet}
+                                                                        className={`text-white px-4 py-2 rounded mt-1 sm:mt-0 ${isImporting || isImported
+                                                                            ? 'bg-gray-400 cursor-not-allowed'
+                                                                            : 'bg-blue-600 hover:bg-blue-700'
+                                                                            }`}
+                                                                        disabled={isImporting || isImported}
+                                                                    >
+                                                                        {isImporting ? 'Importing...' : isImported ? 'Imported' : 'Import'}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+
+                                                            {isImported && (
+                                                                <p className="text-green-600 text-sm">
+                                                                    ✅ Successfully imported {importCount} contacts from Google Sheet.
+                                                                </p>
+                                                            )}
                                                         </div>
                                                     )}
                                                     <div className="flex sm:flex-row flex-col justify-between">
@@ -1145,7 +1245,7 @@ const ComponentsAppsCreateNewCampaign = () => {
                                                                 <div className="flex items-center p-6 bg-white rounded-lg shadow-md">
                                                                     <IconUsersGroup className="text-4xl text-yellow-600 mr-4" />
                                                                     <div className="text-left">
-                                                                        <div className="text-xl font-semibold text-gray-800">{audienceCount ? audienceCount : selectedContacts.length}</div>
+                                                                        <div className="text-xl font-semibold text-gray-800">{audienceCount ? audienceCount : selectedContacts.length ? selectedContacts.length : importCount}</div>
                                                                         <div className="text-sm font-light text-gray-400">Audience Size</div>
                                                                     </div>
                                                                 </div>
